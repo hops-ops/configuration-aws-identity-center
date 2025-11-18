@@ -1,0 +1,52 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+{{ range $permissionSet := $permissionSets }}
+  {{- $permissionSetName := $permissionSet.name }}
+  {{- if and $permissionSetName $identityCenterInstanceArn }}
+    {{- $permissionSetResourceName := index $permissionSetResourceNames $permissionSetName | default (printf "%s-%s-permissionset" $organizationName (regexReplaceAll "[^a-z0-9-]" (lower $permissionSetName) "-")) }}
+    {{- $permissionSetLabelValue := regexReplaceAll "[^a-z0-9-]" (lower $permissionSetName) "-" }}
+    {{- $permissionSetLabels := dict "hops.ops.com.ai/organization" $organizationName "aws.hops.ops.com.ai/identity-center-permission-set" $permissionSetLabelValue }}
+    {{- $assignments := get $permissionSetAssignments $permissionSetName | default (list) }}
+
+    {{- range $assignIndex, $assignment := $assignments }}
+      {{- $accountId := $assignment.accountId }}
+      {{- $principalType := $assignment.principalType | default "USER" }}
+      {{- $principalId := $assignment.principalId }}
+      {{- $principalRef := $assignment.principalRef }}
+      {{- if and $accountId (or $principalId $principalRef) }}
+
+---
+
+apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
+kind: AccountAssignment
+metadata:
+  name: {{ printf "%s-assignment-%d" $permissionSetResourceName $assignIndex }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "permission-set-assignment-%s-%d" $permissionSetName $assignIndex) }}
+  labels:
+    {{- toYaml $permissionSetLabels | nindent 4 }}
+spec:
+  deletionPolicy: {{ $deletionPolicy }}
+  managementPolicies: {{ toYaml $managementPolicies | nindent 4 }}
+  forProvider:
+    instanceArn: {{ $identityCenterInstanceArn }}
+    permissionSetArnRef:
+      name: {{ $permissionSetResourceName }}
+    principalType: {{ $principalType }}
+    {{- if $principalId }}
+    principalId: {{ $principalId }}
+    {{- else if $principalRef }}
+    principalIdRef:
+      name: {{ $principalRef }}
+    {{- end }}
+    targetId: "{{ $accountId }}"
+    targetType: AWS_ACCOUNT
+  providerConfigRef:
+    kind: ProviderConfig
+    name: {{ $identityCenterProviderConfig }}
+
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{ end }}

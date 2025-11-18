@@ -1,0 +1,127 @@
+# code: language=yaml
+
+{{ $xr := getCompositeResource . }}
+{{ $metadata := $xr.metadata | default (dict) }}
+{{ $spec := $xr.spec | default (dict) }}
+{{ $forProvider := $spec.forProvider | default (dict) }}
+
+{{ $organizationName := $spec.organizationName | default ($metadata.name | default "identity-center") }}
+{{ $managementMode := $spec.managementMode | default "self" }}
+{{ $deletionPolicy := $spec.deletionPolicy | default "Delete" }}
+{{ $managementPolicies := $spec.managementPolicies | default (list "*") }}
+
+{{ $rootAccountRef := $forProvider.rootAccountRef | default (dict) }}
+{{ $providerConfigName := $spec.providerConfigName | default $rootAccountRef.name | default $organizationName | default "default" }}
+
+{{ $identityCenter := $forProvider.identityCenter | default (dict) }}
+{{ $identityCenterProviderConfig := $identityCenter.providerConfig | default $providerConfigName }}
+{{ $identityCenterInstanceArn := $identityCenter.instanceArn | default "" }}
+{{ $identityCenterRelayState := $identityCenter.relayState }}
+{{ $identityCenterSessionDuration := $identityCenter.sessionDuration | default "PT1H" }}
+{{ $defaultAWSTags := dict "hops" "true" "organization" $organizationName }}
+{{ $identityCenterTags := merge $defaultAWSTags ($identityCenter.tags | default (dict)) }}
+
+{{ $identityStore := $forProvider.identityStore | default (dict) }}
+{{ $identityStoreProviderConfig := $identityStore.providerConfig | default $identityCenterProviderConfig }}
+{{ $identityStoreId := $identityStore.identityStoreId | default "" }}
+
+{{ $groups := $forProvider.groups | default (list) }}
+{{ $groupResourceNames := dict }}
+{{ range $groups }}
+  {{- $groupName := .name }}
+  {{- if and $groupName $identityStoreId }}
+    {{- $groupSlug := regexReplaceAll "[^a-z0-9-]" (lower $groupName) "-" }}
+    {{- $_ := set $groupResourceNames $groupName (printf "%s-ic-group-%s" $organizationName $groupSlug) }}
+  {{- end }}
+{{ end }}
+
+{{ $localUsers := $forProvider.localUsers | default (list) }}
+{{ $userResourceNames := dict }}
+{{ range $localUsers }}
+  {{- $username := .username }}
+  {{- if and $username $identityStoreId }}
+    {{- $userSlug := regexReplaceAll "[^a-z0-9-]" (lower $username) "-" }}
+    {{- $_ := set $userResourceNames $username (printf "%s-ic-user-%s" $organizationName $userSlug) }}
+  {{- end }}
+{{ end }}
+
+{{ $permissionSets := $forProvider.permissionSets | default (list) }}
+{{ $permissionSetResourceNames := dict }}
+{{ range $permissionSets }}
+  {{- $permissionSetName := .name }}
+  {{- if $permissionSetName }}
+    {{- $permissionSetSlug := regexReplaceAll "[^a-z0-9-]" (lower $permissionSetName) "-" }}
+    {{- $_ := set $permissionSetResourceNames $permissionSetName (printf "%s-%s-permissionset" $organizationName $permissionSetSlug) }}
+  {{- end }}
+{{ end }}
+
+{{ $permissionSetAssignments := dict }}
+{{ range $permissionSets }}
+  {{- $permissionSetName := .name }}
+  {{- if $permissionSetName }}
+    {{- $renderableAssignments := list }}
+    {{- $assignToAccounts := .assignToAccounts | default (list) }}
+    {{- $assignToGroups := .assignToGroups | default (list) }}
+    {{- $assignToUsers := .assignToUsers | default (list) }}
+    {{- range $assignToAccounts }}
+      {{- $accountId := printf "%v" . }}
+      {{- if $accountId }}
+        {{- range $groupName := $assignToGroups }}
+          {{- $principalRef := index $groupResourceNames $groupName }}
+          {{- if $principalRef }}
+            {{- $renderableAssignments = append $renderableAssignments (dict "accountId" $accountId "principalType" "GROUP" "principalName" $groupName "principalRef" $principalRef) }}
+          {{- end }}
+        {{- end }}
+        {{- range $userName := $assignToUsers }}
+          {{- $principalRef := index $userResourceNames $userName }}
+          {{- if $principalRef }}
+            {{- $renderableAssignments = append $renderableAssignments (dict "accountId" $accountId "principalType" "USER" "principalName" $userName "principalRef" $principalRef) }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- $explicitAssignments := .assignments | default (list) }}
+    {{- range $explicitAssignments }}
+      {{- $accountId := printf "%v" .accountId }}
+      {{- if $accountId }}
+        {{- $assignment := dict "accountId" $accountId }}
+        {{- $principalBlock := .principal | default (dict) }}
+        {{- $principalType := upper ($principalBlock.type | default .principalType | default "USER") }}
+        {{- $principalId := $principalBlock.id | default .principalId }}
+        {{- $principalName := $principalBlock.name }}
+        {{- $principalRef := "" }}
+        {{- if and (not $principalId) $principalName }}
+          {{- if eq $principalType "USER" }}
+            {{- $principalRef = index $userResourceNames $principalName }}
+          {{- else if eq $principalType "GROUP" }}
+            {{- $principalRef = index $groupResourceNames $principalName }}
+          {{- end }}
+        {{- end }}
+        {{- if or $principalId $principalRef }}
+          {{- $_ := set $assignment "principalType" $principalType }}
+          {{- if $principalId }}
+            {{- $_ := set $assignment "principalId" $principalId }}
+          {{- end }}
+          {{- if $principalName }}
+            {{- $_ := set $assignment "principalName" $principalName }}
+          {{- end }}
+          {{- if $principalRef }}
+            {{- $_ := set $assignment "principalRef" $principalRef }}
+          {{- end }}
+          {{- $renderableAssignments = append $renderableAssignments $assignment }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- $_ := set $permissionSetAssignments $permissionSetName $renderableAssignments }}
+  {{- end }}
+{{ end }}
+
+{{ $localUserGroupMemberships := dict }}
+{{ range $user := $localUsers }}
+  {{- $username := $user.username }}
+  {{- if $username }}
+    {{- $_ := set $localUserGroupMemberships $username ($user.groups | default (list)) }}
+  {{- end }}
+{{ end }}
+
+{{ $externalIdP := $forProvider.externalIdP | default (dict) }}

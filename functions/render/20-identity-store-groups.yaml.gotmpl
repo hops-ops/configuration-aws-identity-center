@@ -1,0 +1,38 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+{{ if $identityStoreId }}
+  {{- range $group := $groups }}
+    {{- $groupName := $group.name }}
+    {{- $resourceName := index $groupResourceNames $groupName }}
+    {{- if and $groupName $resourceName }}
+      {{- $displayName := $group.displayName | default $groupName }}
+      {{- $groupSlug := regexReplaceAll "[^a-z0-9-]" (lower $groupName) "-" }}
+      {{- $groupLabels := merge (dict "hops.ops.com.ai/organization" $organizationName "aws.hops.ops.com.ai/identity-center-group" $groupSlug) ($group.tags | default (dict)) }}
+
+---
+
+apiVersion: identitystore.aws.m.upbound.io/v1beta1
+kind: Group
+metadata:
+  name: {{ $resourceName }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "identity-center-group-%s" $groupName) }}
+  labels:
+    {{- toYaml $groupLabels | nindent 4 }}
+spec:
+  deletionPolicy: {{ $deletionPolicy }}
+  managementPolicies: {{ toYaml $managementPolicies | nindent 4 }}
+  forProvider:
+    identityStoreId: {{ $identityStoreId }}
+    displayName: {{ $displayName }}
+    {{- if $group.description }}
+    description: {{ $group.description }}
+    {{- end }}
+  providerConfigRef:
+    kind: ProviderConfig
+    name: {{ $identityStoreProviderConfig }}
+
+    {{- end }}
+  {{- end }}
+{{ end }}

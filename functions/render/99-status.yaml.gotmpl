@@ -1,0 +1,51 @@
+# code: language=yaml
+
+apiVersion: aws.hops.ops.com.ai/v1alpha1
+kind: IdentityCenter
+status:
+  organizationName: {{ $organizationName }}
+  managementMode: {{ $managementMode }}
+  identityCenter:
+    instanceArn: {{ $identityCenterInstanceArn }}
+    ready: {{ if $identityCenterInstanceArn }}true{{ else }}false{{ end }}
+  identityStore:
+    identityStoreId: {{ $identityStoreId }}
+    users:
+{{- range $user := $localUsers }}
+      {{- $userName := $user.username }}
+      {{- $observedUser := get $observedUsers $userName | default (dict) }}
+      {{- $userId := $observedUser.id | default "" }}
+      - name: {{ $userName }}
+        id: {{ $userId }}
+{{- end }}
+    groups:
+{{- range $group := $groups }}
+      {{- $groupName := $group.name }}
+      {{- $observedGroup := get $observedGroups $groupName | default (dict) }}
+      {{- $groupId := $observedGroup.id | default "" }}
+      - name: {{ $groupName }}
+        id: {{ $groupId }}
+{{- end }}
+  permissionSets:
+{{- range $permissionSet := $permissionSets }}
+    {{- $setName := $permissionSet.name }}
+    {{- $observedSet := get $observedPermissionSets $setName | default (dict) }}
+    {{- $assignments := get $permissionSetAssignments $setName | default (list) }}
+    - name: {{ $setName }}
+      arn: {{ $observedSet.arn | default "" }}
+      assignments:
+      {{- range $assignment := $assignments }}
+        {{- $principalType := upper ($assignment.principalType | default "USER") }}
+        {{- $principalId := $assignment.principalId }}
+        {{- $principalName := $assignment.principalName }}
+        {{- if and (not $principalId) (eq $principalType "USER") }}
+          {{- $principalId = (get $observedUsers $principalName).id | default "" }}
+        {{- else if and (not $principalId) (eq $principalType "GROUP") }}
+          {{- $principalId = (get $observedGroups $principalName).id | default "" }}
+        {{- end }}
+      - accountId: {{ $assignment.accountId }}
+        principalType: {{ $principalType }}
+        principalId: {{ $principalId }}
+        principalName: {{ $principalName | default "" }}
+      {{- end }}
+{{- end }}

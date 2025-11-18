@@ -1,0 +1,80 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+{{ if $identityStoreId }}
+  {{- range $user := $localUsers }}
+    {{- $username := $user.username }}
+    {{- $resourceName := index $userResourceNames $username }}
+    {{- if and $username $resourceName }}
+      {{- $displayName := $user.displayName | default (trim (printf "%s %s" ($user.firstName | default "") ($user.lastName | default ""))) | default $username }}
+      {{- $userLabels := merge (dict "hops.ops.com.ai/organization" $organizationName "aws.hops.ops.com.ai/identity-center-user" (regexReplaceAll "[^a-z0-9-]" (lower $username) "-")) ($user.tags | default (dict)) }}
+
+---
+
+apiVersion: identitystore.aws.m.upbound.io/v1beta1
+kind: User
+metadata:
+  name: {{ $resourceName }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "identity-center-user-%s" $username) }}
+  labels:
+    {{- toYaml $userLabels | nindent 4 }}
+spec:
+  deletionPolicy: {{ $deletionPolicy }}
+  managementPolicies: {{ toYaml $managementPolicies | nindent 4 }}
+  forProvider:
+    identityStoreId: {{ $identityStoreId }}
+    displayName: {{ $displayName }}
+    userName: {{ $username }}
+    {{- if or $user.firstName $user.lastName }}
+    name:
+      {{- if $user.firstName }}
+      givenName: {{ $user.firstName }}
+      {{- end }}
+      {{- if $user.lastName }}
+      familyName: {{ $user.lastName }}
+      {{- end }}
+    {{- end }}
+    {{- if $user.email }}
+    emails:
+      - value: {{ $user.email }}
+        type: work
+        primary: true
+    {{- end }}
+  providerConfigRef:
+    kind: ProviderConfig
+    name: {{ $identityStoreProviderConfig }}
+
+      {{- $userGroups := get $localUserGroupMemberships $username | default (list) }}
+      {{- range $groupName := $userGroups }}
+        {{- $groupResourceName := index $groupResourceNames $groupName }}
+        {{- if $groupResourceName }}
+          {{- $membershipSlug := regexReplaceAll "[^a-z0-9-]" (lower (printf "%s-%s" $username $groupName)) "-" }}
+
+---
+
+apiVersion: identitystore.aws.m.upbound.io/v1beta1
+kind: GroupMembership
+metadata:
+  name: {{ printf "%s-ic-membership-%s" $organizationName $membershipSlug }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "identity-center-group-membership-%s-%s" $username $groupName) }}
+spec:
+  deletionPolicy: {{ $deletionPolicy }}
+  managementPolicies: {{ toYaml $managementPolicies | nindent 4 }}
+  forProvider:
+    identityStoreId: {{ $identityStoreId }}
+    memberIdRef:
+      name: {{ $resourceName }}
+    groupIdRef:
+      name: {{ $groupResourceName }}
+  providerConfigRef:
+    kind: ProviderConfig
+    name: {{ $identityStoreProviderConfig }}
+
+        {{- end }}
+      {{- end }}
+
+    {{- end }}
+  {{- end }}
+{{ end }}

@@ -1,0 +1,28 @@
+apiVersion: meta.dev.upbound.io/v2alpha1
+kind: Project
+metadata:
+  name: configuration-aws-identity-center
+spec:
+  dependsOn:
+  - apiVersion: pkg.crossplane.io/v1
+    kind: Provider
+    package: xpkg.crossplane.io/crossplane-contrib/provider-aws-identitystore
+    version: '>=v2.2.0'
+  - apiVersion: pkg.crossplane.io/v1
+    kind: Provider
+    package: xpkg.crossplane.io/crossplane-contrib/provider-aws-ssoadmin
+    version: '>=v2.2.0'
+  - apiVersion: pkg.crossplane.io/v1
+    kind: Function
+    package: xpkg.crossplane.io/crossplane-contrib/function-auto-ready
+    version: '>=v0.5.1'
+  description: XRD for configuring AWS Identity Center users, groups, permission sets,
+    and assignments.
+  license: Apache-2.0
+  maintainer: Patrick Lee Scott <pat@patscott.io>
+  readme: |
+    # configuration-aws-identity-center
+
+    Provides a reusable Identity Center blueprint covering Identity Store principals plus permission sets and account assignments.
+  repository: ghcr.io/hops-ops/configuration-aws-identity-center
+  source: github.com/hops-ops/configuration-aws-identity-center

@@ -1,0 +1,21 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Configuration
+metadata:
+  name: configuration-aws-identity-center
+spec:
+  package: ghcr.io/hops-ops/configuration-aws-identity-center:{{ .Values.version }}
+  packagePullSecrets:
+    - name: ghcr
+  skipDependencyResolution: {{ .Values.skipDependencyResolution }}
+
+---
+
+apiVersion: pkg.crossplane.io/v1
+kind: Function
+metadata:
+  name: hops-ops-configuration-aws-identity-centerrender
+spec:
+  package: ghcr.io/hops-ops/configuration-aws-identity-center_render:{{ .Values.version }}
+  packagePullSecrets:
+    - name: ghcr
+  skipDependencyResolution: {{ .Values.skipDependencyResolution }}
