@@ -25,6 +25,9 @@ spec:
   forProvider:
     identityStoreId: {{ $identityStoreId }}
     displayName: {{ $displayName }}
+    {{- if $region }}
+    region: {{ $region }}
+    {{- end }}
     {{- if $group.description }}
     description: {{ $group.description }}
     {{- end }}

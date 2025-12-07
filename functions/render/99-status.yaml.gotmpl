@@ -43,7 +43,7 @@ status:
         {{- else if and (not $principalId) (eq $principalType "GROUP") }}
           {{- $principalId = (get $observedGroups $principalName).id | default "" }}
         {{- end }}
-      - accountId: {{ $assignment.accountId }}
+      - accountId: "{{ $assignment.accountId }}"
         principalType: {{ $principalType }}
         principalId: {{ $principalId }}
         principalName: {{ $principalName | default "" }}

@@ -26,13 +26,15 @@ metadata:
   labels:
     {{- toYaml $permissionSetLabels | nindent 4 }}
 spec:
-  deletionPolicy: {{ $deletionPolicy }}
   managementPolicies: {{ toYaml $managementPolicies | nindent 4 }}
   forProvider:
     instanceArn: {{ $identityCenterInstanceArn }}
     name: {{ $permissionSetName }}
     description: {{ $description }}
     sessionDuration: {{ $sessionDuration }}
+    {{- if $region }}
+    region: {{ $region }}
+    {{- end }}
     {{- if $relayState }}
     relayState: {{ $relayState }}
     {{- end }}
@@ -57,7 +59,6 @@ metadata:
   labels:
     {{- toYaml $permissionSetLabels | nindent 4 }}
 spec:
-  deletionPolicy: {{ $deletionPolicy }}
   managementPolicies: {{ toYaml $managementPolicies | nindent 4 }}
   forProvider:
     instanceArn: {{ $identityCenterInstanceArn }}
@@ -65,6 +66,9 @@ spec:
 {{ $inlinePolicy | indent 6 }}
     permissionSetArnRef:
       name: {{ $permissionSetResourceName }}
+    {{- if $region }}
+    region: {{ $region }}
+    {{- end }}
   providerConfigRef:
     kind: ProviderConfig
     name: {{ $providerConfigName }}
@@ -77,7 +81,7 @@ spec:
 ---
 
 apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
-kind: PermissionSetManagedPolicyAttachment
+kind: ManagedPolicyAttachment
 metadata:
   name: {{ printf "%s-managed-%d" $permissionSetResourceName $mpIndex }}
   annotations:
@@ -85,13 +89,15 @@ metadata:
   labels:
     {{- toYaml $permissionSetLabels | nindent 4 }}
 spec:
-  deletionPolicy: {{ $deletionPolicy }}
   managementPolicies: {{ toYaml $managementPolicies | nindent 4 }}
   forProvider:
     instanceArn: {{ $identityCenterInstanceArn }}
     managedPolicyArn: {{ $managedPolicy }}
     permissionSetArnRef:
       name: {{ $permissionSetResourceName }}
+    {{- if $region }}
+    region: {{ $region }}
+    {{- end }}
   providerConfigRef:
     kind: ProviderConfig
     name: {{ $providerConfigName }}
@@ -113,7 +119,6 @@ metadata:
   labels:
     {{- toYaml $permissionSetLabels | nindent 4 }}
 spec:
-  deletionPolicy: {{ $deletionPolicy }}
   managementPolicies: {{ toYaml $managementPolicies | nindent 4 }}
   forProvider:
     instanceArn: {{ $identityCenterInstanceArn }}
@@ -124,6 +129,9 @@ spec:
       {{- if $customerPolicy.path }}
       path: {{ $customerPolicy.path }}
       {{- end }}
+    {{- if $region }}
+    region: {{ $region }}
+    {{- end }}
   providerConfigRef:
     kind: ProviderConfig
     name: {{ $providerConfigName }}

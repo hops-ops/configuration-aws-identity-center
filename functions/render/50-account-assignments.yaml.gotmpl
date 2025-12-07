@@ -14,7 +14,13 @@
       {{- $principalType := $assignment.principalType | default "USER" }}
       {{- $principalId := $assignment.principalId }}
       {{- $principalRef := $assignment.principalRef }}
-      {{- if and $accountId (or $principalId $principalRef) }}
+      {{- $principalName := $assignment.principalName }}
+      {{- $resolvedPrincipalId := $principalId }}
+      {{- if and (not $principalId) $principalRef (eq $principalType "USER") $principalName }}
+        {{- $observedUser := get $observedUsers $principalName | default (dict) }}
+        {{- $resolvedPrincipalId = $observedUser.id | default "" }}
+      {{- end }}
+      {{- if and $accountId (or $resolvedPrincipalId $principalRef) }}
 
 ---
 
@@ -27,21 +33,23 @@ metadata:
   labels:
     {{- toYaml $permissionSetLabels | nindent 4 }}
 spec:
-  deletionPolicy: {{ $deletionPolicy }}
   managementPolicies: {{ toYaml $managementPolicies | nindent 4 }}
   forProvider:
     instanceArn: {{ $identityCenterInstanceArn }}
     permissionSetArnRef:
       name: {{ $permissionSetResourceName }}
     principalType: {{ $principalType }}
-    {{- if $principalId }}
-    principalId: {{ $principalId }}
-    {{- else if $principalRef }}
-    principalIdRef:
+    {{- if $resolvedPrincipalId }}
+    principalId: {{ $resolvedPrincipalId }}
+    {{- else if and $principalRef (eq $principalType "GROUP") }}
+    principalIdFromGroupRef:
       name: {{ $principalRef }}
     {{- end }}
     targetId: "{{ $accountId }}"
     targetType: AWS_ACCOUNT
+    {{- if $region }}
+    region: {{ $region }}
+    {{- end }}
   providerConfigRef:
     kind: ProviderConfig
     name: {{ $providerConfigName }}

@@ -25,6 +25,9 @@ spec:
     identityStoreId: {{ $identityStoreId }}
     displayName: {{ $displayName }}
     userName: {{ $username }}
+    {{- if $region }}
+    region: {{ $region }}
+    {{- end }}
     {{- if or $user.firstName $user.lastName }}
     name:
       {{- if $user.firstName }}
@@ -36,9 +39,9 @@ spec:
     {{- end }}
     {{- if $user.email }}
     emails:
-      - value: {{ $user.email }}
-        type: work
-        primary: true
+      value: {{ $user.email }}
+      type: work
+      primary: true
     {{- end }}
   providerConfigRef:
     kind: ProviderConfig
@@ -66,6 +69,9 @@ spec:
       name: {{ $resourceName }}
     groupIdRef:
       name: {{ $groupResourceName }}
+    {{- if $region }}
+    region: {{ $region }}
+    {{- end }}
   providerConfigRef:
     kind: ProviderConfig
     name: {{ $providerConfigName }}

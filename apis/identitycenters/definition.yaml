@@ -28,6 +28,9 @@ spec:
               organizationName:
                 type: string
                 description: Logical name used for tagging and naming rendered resources. Defaults to metadata.name.
+              region:
+                type: string
+                description: AWS region for Identity Center and Identity Store resources.
               managementMode:
                 type: string
                 description: Controls whether Hops or the caller manages downstream consumers. Defaults to self.
@@ -272,6 +275,7 @@ spec:
                           type: string
                         id:
                           type: string
+                          nullable: true
                   groups:
                     type: array
                     items:
@@ -281,6 +285,7 @@ spec:
                           type: string
                         id:
                           type: string
+                          nullable: true
               permissionSets:
                 type: array
                 items:
@@ -290,6 +295,7 @@ spec:
                       type: string
                     arn:
                       type: string
+                      nullable: true
                     assignments:
                       type: array
                       items:
@@ -301,6 +307,7 @@ spec:
                             type: string
                           principalId:
                             type: string
+                            nullable: true
                           principalName:
                             type: string
         

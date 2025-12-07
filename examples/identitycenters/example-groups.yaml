@@ -8,6 +8,7 @@ spec:
   managementMode: self
   managementPolicies: ["*"]
   providerConfigName: aws-provider
+  region: us-east-1
   identityCenter:
     instanceArn: arn:aws:sso:::instance/ssoins-abcdef0123456789
     relayState: https://console.aws.amazon.com/

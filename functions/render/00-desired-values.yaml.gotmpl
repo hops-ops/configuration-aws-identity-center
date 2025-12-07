@@ -10,6 +10,7 @@
 {{ $managementPolicies := $spec.managementPolicies | default (list "*") }}
 
 {{ $providerConfigName := $spec.providerConfigName | default $organizationName | default "default" }}
+{{ $region := $spec.region | default "" }}
 
 {{ $identityCenter := $spec.identityCenter | default (dict) }}
 {{ $identityCenterInstanceArn := $identityCenter.instanceArn | default "" }}
