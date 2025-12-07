@@ -28,15 +28,15 @@ spec:
     {{- if $region }}
     region: {{ $region }}
     {{- end }}
-    {{- if or $user.firstName $user.lastName }}
     name:
       {{- if $user.firstName }}
       givenName: {{ $user.firstName }}
+      {{- else }}
+      givenName: {{ $displayName }}
       {{- end }}
       {{- if $user.lastName }}
       familyName: {{ $user.lastName }}
       {{- end }}
-    {{- end }}
     {{- if $user.email }}
     emails:
       value: {{ $user.email }}
