@@ -120,7 +120,7 @@ _items = [
                                 name: _test_permission_set_name
                                 description: "Timestamped permission set for e2e validation"
                                 managedPolicies: [
-                                    "arn:aws:iam::aws:policy/ViewOnlyAccess"
+                                    "arn:aws:iam::aws:policy/job-function/ViewOnlyAccess"
                                 ]
                                 assignToGroups: [_test_group_name]
                                 assignToAccounts: [_target_account]
