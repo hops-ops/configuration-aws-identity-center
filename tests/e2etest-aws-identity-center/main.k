@@ -73,7 +73,7 @@ _items = [
                             {
                                 name: _persistent_group_name
                                 displayName: "E2E Persistent Admins"
-                                externalName: _persistent_group_id
+                                # externalName: _persistent_group_id
                                 managementPolicies: ["Create", "Observe", "Update", "LateInitialize"]
                             }
                             # Timestamped group - created and deleted each run
