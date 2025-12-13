@@ -23,7 +23,7 @@ _identity_store_id = "d-9a675288a4"
 _region = "us-east-2"
 
 # Target account for testing permission set assignments
-_target_account = "123456789012"
+_target_account = "544051101726"
 
 # Persistent group - imported via externalName, not deleted on cleanup
 _persistent_group_name = "hops-e2e-test"
@@ -86,7 +86,7 @@ _items = [
                             # Persistent user - imported and orphaned (won't be deleted)
                             {
                                 username: _persistent_user_name
-                                email: "e2e-persistent-admin@ops.com.ai"
+                                email: "hops-e2e-admin@ops.com.ai"
                                 firstName: "E2E"
                                 lastName: "Persistent"
                                 # externalName: _persistent_user_id
