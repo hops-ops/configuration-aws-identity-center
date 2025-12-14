@@ -148,6 +148,8 @@ spec:
       assignToAccounts: ["123456789012"]  # Your AWS account ID
 ```
 
+When adopting an existing permission set, set `permissionSets[].externalName` to `PERMISSION_SET_ARN,INSTANCE_ARN` (both values required by the provider).
+
 Apply it:
 
 ```bash

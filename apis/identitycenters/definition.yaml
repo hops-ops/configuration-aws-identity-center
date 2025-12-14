@@ -192,6 +192,7 @@ spec:
                       type: string
                       description: |
                         Permission Set ARN to adopt (e.g., arn:aws:sso:::permissionSet/ssoins-.../ps-...).
+                        Provider expects PERMISSION_SET_ARN,INSTANCE_ARN; include the instance ARN when importing existing permission sets.
                         When set, Crossplane imports the existing permission set instead of creating a new one.
                     managementPolicies:
                       type: array

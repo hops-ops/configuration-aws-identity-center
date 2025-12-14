@@ -36,6 +36,7 @@ _persistent_user_id = "217be550-1051-7016-a428-1864e5e57e75"
 # Persistent permission set - imported via externalName, not deleted on cleanup
 _persistent_permission_set_name = "E2EPersistentAccess"
 _persistent_permission_set_arn = "arn:aws:sso:::permissionSet/ssoins-668444b406cda8b2/ps-aaebc62f1ea517cc"
+_persistent_permission_set_external_name = _persistent_permission_set_arn + "," + _instance_arn
 
 # =============================================================================
 # Dynamic test resources - timestamped to allow concurrent test runs
@@ -107,7 +108,7 @@ _items = [
                             {
                                 name: _persistent_permission_set_name
                                 description: "Persistent permission set for e2e testing"
-                                externalName: _persistent_permission_set_arn
+                                externalName: _persistent_permission_set_external_name
                                 managementPolicies: ["Create", "Observe", "Update", "LateInitialize"]
                                 managedPolicies: [
                                     "arn:aws:iam::aws:policy/ReadOnlyAccess"
