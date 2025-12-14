@@ -163,6 +163,11 @@ spec:
                       description: Group names the user should join.
                       items:
                         type: string
+                    groupMembershipExternalNames:
+                      type: object
+                      description: Optional map of group names to Identity Store membership IDs for adopting existing memberships.
+                      additionalProperties:
+                        type: string
                     tags:
                       type: object
                       description: Extra labels mirrored onto the metadata.labels map.

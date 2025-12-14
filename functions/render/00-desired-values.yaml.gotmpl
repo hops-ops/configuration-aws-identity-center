@@ -131,10 +131,12 @@
 {{ end }}
 
 {{ $userGroupMemberships := dict }}
+{{ $userGroupMembershipExternalNames := dict }}
 {{ range $user := $users }}
   {{- $username := $user.username }}
   {{- if $username }}
     {{- $_ := set $userGroupMemberships $username ($user.groups | default (list)) }}
+    {{- $_ := set $userGroupMembershipExternalNames $username ($user.groupMembershipExternalNames | default (dict)) }}
   {{- end }}
 {{ end }}
 

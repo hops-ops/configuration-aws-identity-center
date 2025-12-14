@@ -32,6 +32,7 @@ _persistent_group_id = "d1fb9590-0091-7072-55a4-dd0778f5d5cb"
 # Persistent user - imported via externalName, not deleted on cleanup
 _persistent_user_name = "hops-e2e-admin"
 _persistent_user_id = "217be550-1051-7016-a428-1864e5e57e75"
+_persistent_membership_id = "115b85b0-f0c1-70ae-802f-41695fa2f655"  # Fill with MembershipId for hops-e2e-admin in hops-e2e-test (list-group-memberships)
 
 # Persistent permission set - imported via externalName, not deleted on cleanup
 _persistent_permission_set_name = "E2EPersistentAccess"
@@ -93,6 +94,9 @@ _items = [
                                 externalName: _persistent_user_id
                                 managementPolicies: ["Create", "Observe", "Update", "LateInitialize"]
                                 groups: [_persistent_group_name]
+                                groupMembershipExternalNames: {
+                                    (_persistent_group_name): _persistent_membership_id
+                                }
                             }
                             # Timestamped user - created and deleted each run
                             {

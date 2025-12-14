@@ -150,6 +150,12 @@ spec:
 
 When adopting an existing permission set, set `permissionSets[].externalName` to `PERMISSION_SET_ARN,INSTANCE_ARN` (both values required by the provider).
 
+To adopt existing group memberships (avoid conflicts when a user is already in a group), set `users[].groupMembershipExternalNames[<groupName>]` to the Identity Store membership ID. Fetch it with `aws identitystore list-group-memberships --identity-store-id <id> --group-id <groupId>` and use the returned `MembershipId` value.
+
+Import tips for existing Identity Store group memberships (Terraform/Pulumi):
+- MembershipId is not shown in the AWS console; fetch it via `aws identitystore list-group-memberships --identity-store-id <id> --group-id <group-id>`.
+- Grab `identity_store_id` from `aws sso-admin list-instances` and group/user IDs from `aws identitystore list-groups` / `list-users`.
+
 Apply it:
 
 ```bash

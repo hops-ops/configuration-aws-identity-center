@@ -56,10 +56,12 @@ spec:
     name: {{ $providerConfigName }}
 
       {{- $userGroups := get $userGroupMemberships $username | default (list) }}
+      {{- $membershipExternalNames := get $userGroupMembershipExternalNames $username | default (dict) }}
       {{- range $groupName := $userGroups }}
         {{- $groupResourceName := index $groupResourceNames $groupName }}
         {{- if $groupResourceName }}
           {{- $membershipSlug := regexReplaceAll "[^a-z0-9-]" (lower (printf "%s-%s" $username $groupName)) "-" }}
+          {{- $membershipExternalName := index $membershipExternalNames $groupName | default "" }}
 
 ---
 
@@ -69,6 +71,9 @@ metadata:
   name: {{ printf "%s-ic-membership-%s" $organizationName $membershipSlug }}
   annotations:
     {{ setResourceNameAnnotation (printf "identity-center-group-membership-%s-%s" $username $groupName) }}
+    {{- if $membershipExternalName }}
+    crossplane.io/external-name: {{ $membershipExternalName | quote }}
+    {{- end }}
 spec:
   managementPolicies: {{ toYaml $userMgmtPolicies | nindent 4 }}
   forProvider:
