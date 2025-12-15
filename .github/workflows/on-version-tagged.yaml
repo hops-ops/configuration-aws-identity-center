@@ -13,14 +13,14 @@ permissions:
 jobs:
 
   publish:
-    uses: unbounded-tech/workflows-crossplane/.github/workflows/publish.yaml@v0.8.0
+    uses: unbounded-tech/workflows-crossplane/.github/workflows/publish.yaml@v1.1.0
     secrets: inherit
     with:
       tag: ${{ github.ref_name }}
 
   release:
     needs: publish
-    uses: unbounded-tech/workflow-simple-release/.github/workflows/workflow.yaml@v2.0.1
+    uses: unbounded-tech/workflow-simple-release/.github/workflows/workflow.yaml@v2.1.1
     with:
       tag: ${{ github.ref_name }}
       name: ${{ github.ref_name }}
