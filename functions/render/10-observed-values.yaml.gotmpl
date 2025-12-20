@@ -91,9 +91,11 @@
     {{- end }}
 
     {{- $managedPolicies := $permissionSet.managedPolicies | default (list) }}
-    {{- range $mpIndex, $managedPolicy := $managedPolicies }}
+    {{- range $managedPolicy := $managedPolicies }}
       {{- if $managedPolicy }}
-        {{- $managedKey := printf "permission-set-managed-policy-%s-%d" $name $mpIndex }}
+        {{- /* Extract policy name from ARN: arn:aws:iam::aws:policy/ReadOnlyAccess -> readonlyaccess */}}
+        {{- $policySlug := regexReplaceAll "[^a-z0-9]" (lower (regexReplaceAll ".*/" $managedPolicy "")) "" }}
+        {{- $managedKey := printf "permission-set-managed-policy-%s-%s" $name $policySlug }}
         {{- $managedObservation := get $observed $managedKey }}
         {{- $managedReady := false }}
         {{- with $managedObservation }}
@@ -108,14 +110,16 @@
             {{- end }}
           {{- end }}
         {{- end }}
-        {{- $_ := set $managedPolicyReadyMap (printf "%s-%d" $name $mpIndex) $managedReady }}
+        {{- $_ := set $managedPolicyReadyMap $managedKey $managedReady }}
       {{- end }}
     {{- end }}
 
     {{- $customerManagedPolicies := $permissionSet.customerManagedPolicies | default (list) }}
-    {{- range $cmpIndex, $customerPolicy := $customerManagedPolicies }}
+    {{- range $customerPolicy := $customerManagedPolicies }}
       {{- if $customerPolicy }}
-        {{- $customerKey := printf "permission-set-customer-managed-policy-%s-%d" $name $cmpIndex }}
+        {{- /* Use policy name as slug: MyCustomPolicy -> mycustompolicy */}}
+        {{- $policySlug := regexReplaceAll "[^a-z0-9-]" (lower $customerPolicy.name) "" }}
+        {{- $customerKey := printf "permission-set-customer-managed-policy-%s-%s" $name $policySlug }}
         {{- $customerObservation := get $observed $customerKey }}
         {{- $customerReady := false }}
         {{- with $customerObservation }}
@@ -130,13 +134,23 @@
             {{- end }}
           {{- end }}
         {{- end }}
-        {{- $_ := set $customerManagedReadyMap (printf "%s-%d" $name $cmpIndex) $customerReady }}
+        {{- $_ := set $customerManagedReadyMap $customerKey $customerReady }}
       {{- end }}
     {{- end }}
 
     {{- $assignments := get $permissionSetAssignments $name | default (list) }}
-    {{- range $assignIndex, $_ := $assignments }}
-      {{- $assignmentKey := printf "permission-set-assignment-%s-%d" $name $assignIndex }}
+    {{- range $assignment := $assignments }}
+      {{- /* Build deterministic slug matching 50-account-assignments.yaml.gotmpl */}}
+      {{- $accountId := $assignment.accountId }}
+      {{- $principalType := $assignment.principalType | default "USER" }}
+      {{- $principalId := $assignment.principalId }}
+      {{- $principalRef := $assignment.principalRef }}
+      {{- $principalName := $assignment.principalName }}
+      {{- $principalIdentifier := or $principalName $principalId $principalRef }}
+      {{- $principalSlug := regexReplaceAll "[^a-z0-9-]" (lower $principalIdentifier) "" }}
+      {{- $typeSlug := $principalType | lower }}
+      {{- $assignmentSlug := printf "%s-%s-%s" $accountId $typeSlug $principalSlug }}
+      {{- $assignmentKey := printf "permission-set-assignment-%s-%s" $name $assignmentSlug }}
       {{- $assignmentObservation := get $observed $assignmentKey }}
       {{- $assignmentReady := false }}
       {{- with $assignmentObservation }}
@@ -151,7 +165,7 @@
           {{- end }}
         {{- end }}
       {{- end }}
-      {{- $_ := set $accountAssignmentReadyMap (printf "%s-%d" $name $assignIndex) $assignmentReady }}
+      {{- $_ := set $accountAssignmentReadyMap $assignmentKey $assignmentReady }}
     {{- end }}
   {{- end }}
 {{ end }}

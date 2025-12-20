@@ -11,7 +11,7 @@
     {{- $assignments := get $permissionSetAssignments $permissionSetName | default (list) }}
     {{- $permissionSetReady := get $permissionSetReadyMap $permissionSetName | default false }}
 
-    {{- range $assignIndex, $assignment := $assignments }}
+    {{- range $assignment := $assignments }}
       {{- $accountId := $assignment.accountId }}
       {{- $principalType := $assignment.principalType | default "USER" }}
       {{- $principalId := $assignment.principalId }}
@@ -23,15 +23,22 @@
         {{- $resolvedPrincipalId = $observedUser.id | default "" }}
       {{- end }}
       {{- if and $accountId (or $resolvedPrincipalId $principalRef) }}
+        {{- /* Build deterministic slug: accountId-principaltype-principalname - use 'or' for first truthy value */}}
+        {{- $principalIdentifier := or $principalName $resolvedPrincipalId $principalRef }}
+        {{- $principalSlug := regexReplaceAll "[^a-z0-9-]" (lower $principalIdentifier) "" }}
+        {{- $typeSlug := lower $principalType }}
+        {{- $assignmentSlug := printf "%s-%s-%s" $accountId $typeSlug $principalSlug }}
+        {{- $assignmentResourceName := printf "%s-assign-%s" $permissionSetResourceName $assignmentSlug }}
+        {{- $assignmentAnnotationKey := printf "permission-set-assignment-%s-%s" $permissionSetName $assignmentSlug }}
 
 ---
 
 apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
 kind: AccountAssignment
 metadata:
-  name: {{ printf "%s-assignment-%d" $permissionSetResourceName $assignIndex }}
+  name: {{ $assignmentResourceName }}
   annotations:
-    {{ setResourceNameAnnotation (printf "permission-set-assignment-%s-%d" $permissionSetName $assignIndex) }}
+    {{ setResourceNameAnnotation $assignmentAnnotationKey }}
   labels:
     {{- toYaml $permissionSetLabels | nindent 4 }}
 spec:
@@ -57,7 +64,7 @@ spec:
     name: {{ $providerConfigName }}
 
 # Usage: PermissionSet protected by AccountAssignment
-        {{- $assignmentReady := get $accountAssignmentReadyMap (printf "%s-%d" $permissionSetName $assignIndex) | default false }}
+        {{- $assignmentReady := get $accountAssignmentReadyMap $assignmentAnnotationKey | default false }}
         {{- if and $permissionSetReady $assignmentReady }}
 
 ---
@@ -65,9 +72,9 @@ spec:
 apiVersion: protection.crossplane.io/v1beta1
 kind: Usage
 metadata:
-  name: {{ printf "of-%s-by-%s-assignment-%d" $permissionSetResourceName $permissionSetResourceName $assignIndex }}
+  name: {{ printf "of-%s-by-%s" $permissionSetResourceName $assignmentResourceName }}
   annotations:
-    {{ setResourceNameAnnotation (printf "permission-set-account-assignment-usage-%s-%d" $permissionSetName $assignIndex) }}
+    {{ setResourceNameAnnotation (printf "%s-usage" $assignmentAnnotationKey) }}
 spec:
   replayDeletion: true
   of:
@@ -79,7 +86,7 @@ spec:
     apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
     kind: AccountAssignment
     resourceRef:
-      name: {{ printf "%s-assignment-%d" $permissionSetResourceName $assignIndex }}
+      name: {{ $assignmentResourceName }}
 
         {{- end }}
       {{- end }}

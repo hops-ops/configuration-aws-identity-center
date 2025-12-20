@@ -95,11 +95,12 @@ _items = [
                         }
                     }
                 },
+                # ManagedPolicyAttachment uses deterministic slug from policy ARN
                 {
                     apiVersion: "ssoadmin.aws.m.upbound.io/v1beta1"
                     kind: "ManagedPolicyAttachment"
                     metadata: {
-                        name: "platform-sso-adminaccess-managed-0"
+                        name: "platform-sso-adminaccess-managed-administratoraccess"
                     }
                     spec: {
                         forProvider: {
@@ -110,11 +111,12 @@ _items = [
                         }
                     }
                 },
+                # AccountAssignment uses deterministic slug: accountId-principalType-principalName
                 {
                     apiVersion: "ssoadmin.aws.m.upbound.io/v1beta1"
                     kind: "AccountAssignment"
                     metadata: {
-                        name: "platform-sso-adminaccess-assignment-0"
+                        name: "platform-sso-adminaccess-assign-123456789012-group-admins"
                     }
                     spec: {
                         forProvider: {
@@ -166,11 +168,12 @@ _items = [
                         }
                     }
                 },
+                # CustomerManagedPolicyAttachment uses deterministic slug from policy name
                 {
                     apiVersion: "ssoadmin.aws.m.upbound.io/v1beta1"
                     kind: "CustomerManagedPolicyAttachment"
                     metadata: {
-                        name: "workloads-workloads-readonly-customer-managed-0"
+                        name: "workloads-workloads-readonly-customer-customaudit"
                     }
                     spec: {
                         forProvider: {
@@ -181,11 +184,26 @@ _items = [
                         }
                     }
                 },
+                # AccountAssignment for group assignment (from assignToGroups)
                 {
                     apiVersion: "ssoadmin.aws.m.upbound.io/v1beta1"
                     kind: "AccountAssignment"
                     metadata: {
-                        name: "workloads-workloads-readonly-assignment-1"
+                        name: "workloads-workloads-readonly-assign-210987654321-group-workloadsengineering"
+                    }
+                    spec: {
+                        forProvider: {
+                            principalType: "GROUP"
+                            targetId: "210987654321"
+                        }
+                    }
+                },
+                # AccountAssignment for explicit user assignment
+                {
+                    apiVersion: "ssoadmin.aws.m.upbound.io/v1beta1"
+                    kind: "AccountAssignment"
+                    metadata: {
+                        name: "workloads-workloads-readonly-assign-999999999999-user-workloads-reader"
                     }
                     spec: {
                         forProvider: {
