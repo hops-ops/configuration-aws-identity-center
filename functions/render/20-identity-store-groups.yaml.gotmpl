@@ -40,8 +40,8 @@ spec:
     {{ toYaml . | nindent 4 }}
     {{- end }}
   providerConfigRef:
-    kind: ProviderConfig
     name: {{ $providerConfigName }}
+    kind: {{ $providerConfigKind }}
 
     {{- end }}
   {{- end }}

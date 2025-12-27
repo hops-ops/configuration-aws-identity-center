@@ -61,9 +61,10 @@ _items = [
                     }
                     spec: {
                         organizationName: _test_org_name
-                        managementMode: "self"
                         managementPolicies: ["*"]
-                        providerConfigName: "default"
+                        providerConfigRef: {
+                            name: "default"
+                        }
                         region: _region
                         identityStoreId: _identity_store_id
                         identityCenter: {

@@ -60,8 +60,8 @@ spec:
     region: {{ $region }}
     {{- end }}
   providerConfigRef:
-    kind: ProviderConfig
     name: {{ $providerConfigName }}
+    kind: {{ $providerConfigKind }}
 
 # Usage: PermissionSet protected by AccountAssignment
         {{- $assignmentReady := get $accountAssignmentReadyMap $assignmentAnnotationKey | default false }}

@@ -52,8 +52,8 @@ spec:
     {{ toYaml . | nindent 4 }}
     {{- end }}
   providerConfigRef:
-    kind: ProviderConfig
     name: {{ $providerConfigName }}
+    kind: {{ $providerConfigKind }}
 
     {{- if $inlinePolicy }}
 
@@ -79,8 +79,8 @@ spec:
     region: {{ $region }}
     {{- end }}
   providerConfigRef:
-    kind: ProviderConfig
     name: {{ $providerConfigName }}
+    kind: {{ $providerConfigKind }}
 
 # Usage: PermissionSet protected by InlinePolicy
       {{- $inlineReady := get $inlinePolicyReadyMap $permissionSetName | default false }}
@@ -138,8 +138,8 @@ spec:
     region: {{ $region }}
     {{- end }}
   providerConfigRef:
-    kind: ProviderConfig
     name: {{ $providerConfigName }}
+    kind: {{ $providerConfigKind }}
 
 # Usage: PermissionSet protected by ManagedPolicyAttachment
         {{- $managedReady := get $managedPolicyReadyMap $managedAnnotationKey | default false }}
@@ -202,8 +202,8 @@ spec:
     region: {{ $region }}
     {{- end }}
   providerConfigRef:
-    kind: ProviderConfig
     name: {{ $providerConfigName }}
+    kind: {{ $providerConfigKind }}
 
 # Usage: PermissionSet protected by CustomerManagedPolicyAttachment
         {{- $customerReady := get $customerManagedReadyMap $customerAnnotationKey | default false }}

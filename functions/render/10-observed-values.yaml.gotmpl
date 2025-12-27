@@ -1,171 +1,105 @@
 # code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
 
 {{ $observed := $.observed.resources | default (dict) }}
+
+# Extract observed users with compact nil-safe chaining
 {{ $observedUsers := dict }}
-{{ $observedGroups := dict }}
 {{ range $user := $users }}
   {{- $username := $user.username }}
-  {{- if $username }}
-    {{- $key := printf "identity-center-user-%s" $username }}
-    {{- $userObservation := get $observed $key }}
-    {{- $userId := "" }}
-    {{- with $userObservation }}
-      {{- $resource := .resource | default (dict) }}
-      {{- $status := $resource.status | default (dict) }}
-      {{- $atProvider := $status.atProvider | default (dict) }}
-      {{- $candidate := coalesce $atProvider.id $atProvider.userId $atProvider.identityStoreId "" }}
-      {{- $userId = $candidate }}
-    {{- end }}
-    {{- $_ := set $observedUsers $username (dict "id" $userId) }}
-  {{- end }}
+  {{- $userObs := (get $observed (printf "identity-center-user-%s" $username)) | default (dict) }}
+  {{- $userAtProvider := (($userObs.resource | default (dict)).status | default (dict)).atProvider | default (dict) }}
+  {{- $_ := set $observedUsers $username (dict "id" (coalesce $userAtProvider.id $userAtProvider.userId "")) }}
 {{ end }}
 
+# Extract observed groups with compact nil-safe chaining
+{{ $observedGroups := dict }}
 {{ range $group := $groups }}
   {{- $groupName := $group.name }}
-  {{- if $groupName }}
-    {{- $key := printf "identity-center-group-%s" $groupName }}
-    {{- $groupObservation := get $observed $key }}
-    {{- $groupId := "" }}
-    {{- with $groupObservation }}
-      {{- $resource := .resource | default (dict) }}
-      {{- $status := $resource.status | default (dict) }}
-      {{- $atProvider := $status.atProvider | default (dict) }}
-      {{- $candidate := coalesce $atProvider.id $atProvider.groupId "" }}
-      {{- $groupId = $candidate }}
-    {{- end }}
-    {{- $_ := set $observedGroups $groupName (dict "id" $groupId) }}
-  {{- end }}
+  {{- $groupObs := (get $observed (printf "identity-center-group-%s" $groupName)) | default (dict) }}
+  {{- $groupAtProvider := (($groupObs.resource | default (dict)).status | default (dict)).atProvider | default (dict) }}
+  {{- $_ := set $observedGroups $groupName (dict "id" (coalesce $groupAtProvider.id $groupAtProvider.groupId "")) }}
 {{ end }}
 
+# Extract observed permission sets and build readiness maps
 {{ $observedPermissionSets := dict }}
 {{ $permissionSetReadyMap := dict }}
 {{ $inlinePolicyReadyMap := dict }}
 {{ $managedPolicyReadyMap := dict }}
 {{ $customerManagedReadyMap := dict }}
 {{ $accountAssignmentReadyMap := dict }}
+
 {{ range $permissionSet := $permissionSets }}
   {{- $name := $permissionSet.name }}
-  {{- if $name }}
-    {{- $key := printf "permission-set-%s" $name }}
-    {{- $psObservation := get $observed $key }}
-    {{- $arn := "" }}
-    {{- $psReady := false }}
-    {{- with $psObservation }}
-      {{- $resource := .resource | default (dict) }}
-      {{- $status := $resource.status | default (dict) }}
-      {{- $atProvider := $status.atProvider | default (dict) }}
-      {{- $conditions := $status.conditions | default (list) }}
-      {{- range $conditions }}
-        {{- $conditionType := default "" (get . "type") }}
-        {{- $conditionStatus := default "" (get . "status") }}
-        {{- if and (eq $conditionType "Ready") (eq $conditionStatus "True") }}
-          {{- $psReady = true }}
-        {{- end }}
-      {{- end }}
-      {{- $candidate := $atProvider.arn | default "" }}
-      {{- if $candidate }}
-        {{- $arn = $candidate }}
-      {{- end }}
-    {{- end }}
-    {{- $_ := set $observedPermissionSets $name (dict "arn" $arn) }}
-    {{- $_ := set $permissionSetReadyMap $name $psReady }}
+  {{- $psObs := (get $observed (printf "permission-set-%s" $name)) | default (dict) }}
+  {{- $psResource := $psObs.resource | default (dict) }}
+  {{- $psStatus := $psResource.status | default (dict) }}
+  {{- $psAtProvider := $psStatus.atProvider | default (dict) }}
 
-    {{- $inlinePolicy := $permissionSet.inlinePolicy }}
-    {{- if $inlinePolicy }}
-      {{- $inlineKey := printf "permission-set-inline-policy-%s" $name }}
-      {{- $inlineObservation := get $observed $inlineKey }}
-      {{- $inlineReady := false }}
-      {{- with $inlineObservation }}
-        {{- $resource := .resource | default (dict) }}
-        {{- $status := $resource.status | default (dict) }}
-        {{- $conditions := $status.conditions | default (list) }}
-        {{- range $conditions }}
-          {{- $conditionType := default "" (get . "type") }}
-          {{- $conditionStatus := default "" (get . "status") }}
-          {{- if and (eq $conditionType "Ready") (eq $conditionStatus "True") }}
-            {{- $inlineReady = true }}
-          {{- end }}
-        {{- end }}
-      {{- end }}
-      {{- $_ := set $inlinePolicyReadyMap $name $inlineReady }}
+  {{- /* Check if permission set is ready */}}
+  {{- $psReady := false }}
+  {{- range $psStatus.conditions | default (list) }}
+    {{- if and (eq (get . "type") "Ready") (eq (get . "status") "True") }}
+      {{- $psReady = true }}
     {{- end }}
+  {{- end }}
 
-    {{- $managedPolicies := $permissionSet.managedPolicies | default (list) }}
-    {{- range $managedPolicy := $managedPolicies }}
-      {{- if $managedPolicy }}
-        {{- /* Extract policy name from ARN: arn:aws:iam::aws:policy/ReadOnlyAccess -> readonlyaccess */}}
-        {{- $policySlug := regexReplaceAll "[^a-z0-9]" (lower (regexReplaceAll ".*/" $managedPolicy "")) "" }}
-        {{- $managedKey := printf "permission-set-managed-policy-%s-%s" $name $policySlug }}
-        {{- $managedObservation := get $observed $managedKey }}
-        {{- $managedReady := false }}
-        {{- with $managedObservation }}
-          {{- $resource := .resource | default (dict) }}
-          {{- $status := $resource.status | default (dict) }}
-          {{- $conditions := $status.conditions | default (list) }}
-          {{- range $conditions }}
-            {{- $conditionType := default "" (get . "type") }}
-            {{- $conditionStatus := default "" (get . "status") }}
-            {{- if and (eq $conditionType "Ready") (eq $conditionStatus "True") }}
-              {{- $managedReady = true }}
-            {{- end }}
-          {{- end }}
-        {{- end }}
-        {{- $_ := set $managedPolicyReadyMap $managedKey $managedReady }}
-      {{- end }}
-    {{- end }}
+  {{- $_ := set $observedPermissionSets $name (dict "arn" ($psAtProvider.arn | default "")) }}
+  {{- $_ := set $permissionSetReadyMap $name $psReady }}
 
-    {{- $customerManagedPolicies := $permissionSet.customerManagedPolicies | default (list) }}
-    {{- range $customerPolicy := $customerManagedPolicies }}
-      {{- if $customerPolicy }}
-        {{- /* Use policy name as slug: MyCustomPolicy -> mycustompolicy */}}
-        {{- $policySlug := regexReplaceAll "[^a-z0-9-]" (lower $customerPolicy.name) "" }}
-        {{- $customerKey := printf "permission-set-customer-managed-policy-%s-%s" $name $policySlug }}
-        {{- $customerObservation := get $observed $customerKey }}
-        {{- $customerReady := false }}
-        {{- with $customerObservation }}
-          {{- $resource := .resource | default (dict) }}
-          {{- $status := $resource.status | default (dict) }}
-          {{- $conditions := $status.conditions | default (list) }}
-          {{- range $conditions }}
-            {{- $conditionType := default "" (get . "type") }}
-            {{- $conditionStatus := default "" (get . "status") }}
-            {{- if and (eq $conditionType "Ready") (eq $conditionStatus "True") }}
-              {{- $customerReady = true }}
-            {{- end }}
-          {{- end }}
-        {{- end }}
-        {{- $_ := set $customerManagedReadyMap $customerKey $customerReady }}
+  {{- /* Inline policy readiness */}}
+  {{- if $permissionSet.inlinePolicy }}
+    {{- $inlineObs := (get $observed (printf "permission-set-inline-policy-%s" $name)) | default (dict) }}
+    {{- $inlineReady := false }}
+    {{- range (($inlineObs.resource | default (dict)).status | default (dict)).conditions | default (list) }}
+      {{- if and (eq (get . "type") "Ready") (eq (get . "status") "True") }}
+        {{- $inlineReady = true }}
       {{- end }}
     {{- end }}
+    {{- $_ := set $inlinePolicyReadyMap $name $inlineReady }}
+  {{- end }}
 
-    {{- $assignments := get $permissionSetAssignments $name | default (list) }}
-    {{- range $assignment := $assignments }}
-      {{- /* Build deterministic slug matching 50-account-assignments.yaml.gotmpl */}}
-      {{- $accountId := $assignment.accountId }}
-      {{- $principalType := $assignment.principalType | default "USER" }}
-      {{- $principalId := $assignment.principalId }}
-      {{- $principalRef := $assignment.principalRef }}
-      {{- $principalName := $assignment.principalName }}
-      {{- $principalIdentifier := or $principalName $principalId $principalRef }}
-      {{- $principalSlug := regexReplaceAll "[^a-z0-9-]" (lower $principalIdentifier) "" }}
-      {{- $typeSlug := $principalType | lower }}
-      {{- $assignmentSlug := printf "%s-%s-%s" $accountId $typeSlug $principalSlug }}
-      {{- $assignmentKey := printf "permission-set-assignment-%s-%s" $name $assignmentSlug }}
-      {{- $assignmentObservation := get $observed $assignmentKey }}
-      {{- $assignmentReady := false }}
-      {{- with $assignmentObservation }}
-        {{- $resource := .resource | default (dict) }}
-        {{- $status := $resource.status | default (dict) }}
-        {{- $conditions := $status.conditions | default (list) }}
-        {{- range $conditions }}
-          {{- $conditionType := default "" (get . "type") }}
-          {{- $conditionStatus := default "" (get . "status") }}
-          {{- if and (eq $conditionType "Ready") (eq $conditionStatus "True") }}
-            {{- $assignmentReady = true }}
-          {{- end }}
-        {{- end }}
+  {{- /* Managed policy readiness */}}
+  {{- range $managedPolicy := $permissionSet.managedPolicies | default (list) }}
+    {{- $policySlug := regexReplaceAll "[^a-z0-9]" (lower (regexReplaceAll ".*/" $managedPolicy "")) "" }}
+    {{- $managedKey := printf "permission-set-managed-policy-%s-%s" $name $policySlug }}
+    {{- $managedObs := (get $observed $managedKey) | default (dict) }}
+    {{- $managedReady := false }}
+    {{- range (($managedObs.resource | default (dict)).status | default (dict)).conditions | default (list) }}
+      {{- if and (eq (get . "type") "Ready") (eq (get . "status") "True") }}
+        {{- $managedReady = true }}
       {{- end }}
-      {{- $_ := set $accountAssignmentReadyMap $assignmentKey $assignmentReady }}
     {{- end }}
+    {{- $_ := set $managedPolicyReadyMap $managedKey $managedReady }}
+  {{- end }}
+
+  {{- /* Customer managed policy readiness */}}
+  {{- range $customerPolicy := $permissionSet.customerManagedPolicies | default (list) }}
+    {{- $policySlug := regexReplaceAll "[^a-z0-9-]" (lower $customerPolicy.name) "" }}
+    {{- $customerKey := printf "permission-set-customer-managed-policy-%s-%s" $name $policySlug }}
+    {{- $customerObs := (get $observed $customerKey) | default (dict) }}
+    {{- $customerReady := false }}
+    {{- range (($customerObs.resource | default (dict)).status | default (dict)).conditions | default (list) }}
+      {{- if and (eq (get . "type") "Ready") (eq (get . "status") "True") }}
+        {{- $customerReady = true }}
+      {{- end }}
+    {{- end }}
+    {{- $_ := set $customerManagedReadyMap $customerKey $customerReady }}
+  {{- end }}
+
+  {{- /* Account assignment readiness */}}
+  {{- range $assignment := get $permissionSetAssignments $name | default (list) }}
+    {{- $principalIdentifier := or $assignment.principalName $assignment.principalId $assignment.principalRef }}
+    {{- $principalSlug := regexReplaceAll "[^a-z0-9-]" (lower $principalIdentifier) "" }}
+    {{- $assignmentSlug := printf "%s-%s-%s" $assignment.accountId (lower ($assignment.principalType | default "USER")) $principalSlug }}
+    {{- $assignmentKey := printf "permission-set-assignment-%s-%s" $name $assignmentSlug }}
+    {{- $assignmentObs := (get $observed $assignmentKey) | default (dict) }}
+    {{- $assignmentReady := false }}
+    {{- range (($assignmentObs.resource | default (dict)).status | default (dict)).conditions | default (list) }}
+      {{- if and (eq (get . "type") "Ready") (eq (get . "status") "True") }}
+        {{- $assignmentReady = true }}
+      {{- end }}
+    {{- end }}
+    {{- $_ := set $accountAssignmentReadyMap $assignmentKey $assignmentReady }}
   {{- end }}
 {{ end }}

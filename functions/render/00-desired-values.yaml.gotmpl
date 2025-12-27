@@ -1,14 +1,16 @@
 # code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
 
 {{ $xr := getCompositeResource . }}
 {{ $metadata := $xr.metadata | default (dict) }}
 {{ $spec := $xr.spec | default (dict) }}
 
 {{ $organizationName := $spec.organizationName | default ($metadata.name | default "identity-center") }}
-{{ $managementMode := $spec.managementMode | default "self" }}
 {{ $managementPolicies := $spec.managementPolicies | default (list "*") }}
 
-{{ $providerConfigName := $spec.providerConfigName | default $organizationName | default "default" }}
+{{ $providerConfigRef := $spec.providerConfigRef | default (dict) }}
+{{ $providerConfigName := $providerConfigRef.name | default $organizationName | default "default" }}
+{{ $providerConfigKind := $providerConfigRef.kind | default "ProviderConfig" }}
 {{ $region := $spec.region | default "" }}
 
 {{ $identityCenter := $spec.identityCenter | default (dict) }}

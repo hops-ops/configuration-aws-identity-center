@@ -5,7 +5,8 @@ metadata:
   namespace: default
 spec:
   managementPolicies: ["*"]
-  providerConfigName: aws-provider
+  providerConfigRef:
+    name: aws-provider
   region: us-east-1
   identityStoreId: d-1234567890
   identityCenter:

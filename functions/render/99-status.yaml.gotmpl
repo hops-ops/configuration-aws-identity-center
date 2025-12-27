@@ -4,7 +4,6 @@ apiVersion: aws.hops.ops.com.ai/v1alpha1
 kind: IdentityCenter
 status:
   organizationName: {{ $organizationName }}
-  managementMode: {{ $managementMode }}
   identityCenter:
     instanceArn: {{ $identityCenterInstanceArn }}
     ready: {{ if $identityCenterInstanceArn }}true{{ else }}false{{ end }}
