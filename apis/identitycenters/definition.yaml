@@ -33,13 +33,6 @@ spec:
               region:
                 type: string
                 description: AWS region for Identity Center and Identity Store resources.
-              managementMode:
-                type: string
-                description: Controls whether Hops or the caller manages downstream consumers. Defaults to self.
-                enum:
-                - self
-                - managed
-                default: self
               managementPolicies:
                 type: array
                 description: Management operations allowed on composed resources. Use ["*"] for full management or omit Delete to orphan.
@@ -54,9 +47,17 @@ spec:
                   - LateInitialize
                 default:
                 - "*"
-              providerConfigName:
-                type: string
-                description: ProviderConfig used for all AWS API calls. Defaults to metadata.name.
+              providerConfigRef:
+                type: object
+                description: Reference to the ProviderConfig used for all AWS API calls.
+                properties:
+                  name:
+                    type: string
+                    description: Name of the ProviderConfig. Defaults to metadata.name.
+                  kind:
+                    type: string
+                    description: Kind of the provider config reference. Defaults to ProviderConfig.
+                    default: ProviderConfig
               identityStoreId:
                 type: string
                 description: Identity Store ID (for example, d-1234567890).
@@ -320,8 +321,6 @@ spec:
             description: Observed state for IdentityCenter.
             properties:
               organizationName:
-                type: string
-              managementMode:
                 type: string
               identityCenter:
                 type: object

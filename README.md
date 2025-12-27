@@ -44,7 +44,8 @@ metadata:
   namespace: default
 spec:
   managementPolicies: ["*"]
-  providerConfigName: default
+  providerConfigRef:
+    name: default
   region: us-east-1  # Must match where you enabled Identity Center
 
   # From AWS console: IAM Identity Center > Settings
@@ -108,7 +109,8 @@ metadata:
   namespace: default
 spec:
   managementPolicies: ["*"]
-  providerConfigName: default
+  providerConfigRef:
+    name: default
   region: us-east-1
   identityStoreId: d-1234567890
   identityCenter:
@@ -239,7 +241,8 @@ metadata:
   namespace: default
 spec:
   managementPolicies: ["Create", "Observe", "Update", "LateInitialize"]
-  providerConfigName: default
+  providerConfigRef:
+    name: default
   region: us-east-1
   identityStoreId: d-1234567890
   identityCenter:

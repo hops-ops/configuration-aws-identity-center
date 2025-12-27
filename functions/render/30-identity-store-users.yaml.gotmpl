@@ -52,8 +52,8 @@ spec:
     {{ toYaml . | nindent 4 }}
     {{- end }}
   providerConfigRef:
-    kind: ProviderConfig
     name: {{ $providerConfigName }}
+    kind: {{ $providerConfigKind }}
 
       {{- $userGroups := get $userGroupMemberships $username | default (list) }}
       {{- $membershipExternalNames := get $userGroupMembershipExternalNames $username | default (dict) }}
@@ -86,8 +86,8 @@ spec:
     region: {{ $region }}
     {{- end }}
   providerConfigRef:
-    kind: ProviderConfig
     name: {{ $providerConfigName }}
+    kind: {{ $providerConfigKind }}
 
         {{- end }}
       {{- end }}
