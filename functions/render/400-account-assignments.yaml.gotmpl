@@ -1,35 +1,39 @@
 # code: language=yaml
 # yaml-language-server: $schema=../../.up/json/models/index.schema.json
 
-{{ range $permissionSet := $permissionSets }}
-  {{- $permissionSetName := $permissionSet.name }}
-  {{- if and $permissionSetName $identityCenterInstanceArn }}
-    {{- $permissionSetResourceName := index $permissionSetResourceNames $permissionSetName | default (printf "%s-%s" $organizationName (regexReplaceAll "[^a-z0-9-]" (lower $permissionSetName) "-")) }}
-    {{- $permissionSetLabelValue := regexReplaceAll "[^a-z0-9-]" (lower $permissionSetName) "-" }}
-    {{- $permissionSetLabels := dict "hops.ops.com.ai/organization" $organizationName "aws.hops.ops.com.ai/identity-center-permission-set" $permissionSetLabelValue }}
-    {{- $psMgmtPolicies := index $permissionSetManagementPolicies $permissionSetName | default $managementPolicies }}
-    {{- $assignments := get $permissionSetAssignments $permissionSetName | default (list) }}
-    {{- $permissionSetReady := get $permissionSetReadyMap $permissionSetName | default false }}
+# =============================================================================
+# Account Assignments
+# =============================================================================
 
-    {{- range $assignment := $assignments }}
+{{- if $state.identityCenter.permissionSets.render }}
+  {{- $ic := $state.identityCenter }}
+  {{- $obs := $state.observed }}
+
+  {{- range $ps := $ic.permissionSets.list }}
+    {{- $psReady := get $obs.readiness.permissionSets $ps.name | default false }}
+
+    {{- range $assignment := $ps.assignments }}
       {{- $accountId := $assignment.accountId }}
       {{- $principalType := $assignment.principalType | default "USER" }}
       {{- $principalId := $assignment.principalId }}
       {{- $principalRef := $assignment.principalRef }}
       {{- $principalName := $assignment.principalName }}
+
+      {{- /* Resolve principalId from observed if using ref */}}
       {{- $resolvedPrincipalId := $principalId }}
       {{- if and (not $principalId) $principalRef (eq $principalType "USER") $principalName }}
-        {{- $observedUser := get $observedUsers $principalName | default (dict) }}
+        {{- $observedUser := get $obs.users $principalName | default dict }}
         {{- $resolvedPrincipalId = $observedUser.id | default "" }}
       {{- end }}
+
       {{- if and $accountId (or $resolvedPrincipalId $principalRef) }}
-        {{- /* Build deterministic slug: accountId-principaltype-principalname - use 'or' for first truthy value */}}
+        {{- /* Build deterministic slug: accountId-principaltype-principalname */}}
         {{- $principalIdentifier := or $principalName $resolvedPrincipalId $principalRef }}
         {{- $principalSlug := regexReplaceAll "[^a-z0-9-]" (lower $principalIdentifier) "" }}
         {{- $typeSlug := lower $principalType }}
         {{- $assignmentSlug := printf "%s-%s-%s" $accountId $typeSlug $principalSlug }}
-        {{- $assignmentResourceName := printf "%s-assign-%s" $permissionSetResourceName $assignmentSlug }}
-        {{- $assignmentAnnotationKey := printf "permission-set-assignment-%s-%s" $permissionSetName $assignmentSlug }}
+        {{- $assignmentResourceName := printf "%s-assign-%s" $ps.resourceName $assignmentSlug }}
+        {{- $assignmentAnnotationKey := printf "permission-set-assignment-%s-%s" $ps.name $assignmentSlug }}
 
 ---
 
@@ -40,13 +44,13 @@ metadata:
   annotations:
     {{ setResourceNameAnnotation $assignmentAnnotationKey }}
   labels:
-    {{- toYaml $permissionSetLabels | nindent 4 }}
+    {{- toYaml $ps.labels | nindent 4 }}
 spec:
-  managementPolicies: {{ toYaml $psMgmtPolicies | nindent 4 }}
+  managementPolicies: {{ toYaml $ps.managementPolicies | nindent 4 }}
   forProvider:
-    instanceArn: {{ $identityCenterInstanceArn }}
+    instanceArn: {{ $ic.instanceArn }}
     permissionSetArnRef:
-      name: {{ $permissionSetResourceName }}
+      name: {{ $ps.resourceName }}
     principalType: {{ $principalType }}
     {{- if $resolvedPrincipalId }}
     principalId: {{ $resolvedPrincipalId }}
@@ -56,23 +60,23 @@ spec:
     {{- end }}
     targetId: "{{ $accountId }}"
     targetType: AWS_ACCOUNT
-    {{- if $region }}
-    region: {{ $region }}
+    {{- if $ic.region }}
+    region: {{ $ic.region }}
     {{- end }}
   providerConfigRef:
-    name: {{ $providerConfigName }}
-    kind: {{ $providerConfigKind }}
+    name: {{ $ic.providerConfig.name }}
+    kind: {{ $ic.providerConfig.kind }}
 
-# Usage: PermissionSet protected by AccountAssignment
-        {{- $assignmentReady := get $accountAssignmentReadyMap $assignmentAnnotationKey | default false }}
-        {{- if and $permissionSetReady $assignmentReady }}
+        {{- /* Usage: PermissionSet protected by AccountAssignment */}}
+        {{- $assignmentReady := get $obs.readiness.accountAssignments $assignmentAnnotationKey | default false }}
+        {{- if and $psReady $assignmentReady }}
 
 ---
 
 apiVersion: protection.crossplane.io/v1beta1
 kind: Usage
 metadata:
-  name: {{ printf "of-%s-by-%s" $permissionSetResourceName $assignmentResourceName }}
+  name: {{ printf "of-%s-by-%s" $ps.resourceName $assignmentResourceName }}
   annotations:
     {{ setResourceNameAnnotation (printf "%s-usage" $assignmentAnnotationKey) }}
 spec:
@@ -81,7 +85,7 @@ spec:
     apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
     kind: PermissionSet
     resourceRef:
-      name: {{ $permissionSetResourceName }}
+      name: {{ $ps.resourceName }}
   by:
     apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
     kind: AccountAssignment
@@ -92,4 +96,4 @@ spec:
       {{- end }}
     {{- end }}
   {{- end }}
-{{ end }}
+{{- end }}

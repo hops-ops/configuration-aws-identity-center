@@ -1,0 +1,61 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+# =============================================================================
+# Groups State Slice
+# =============================================================================
+
+{{- $eff := $state.spec.effective }}
+{{- $ic := $state.identityCenter }}
+
+# Build groups list with computed values
+{{- $groupsList := list }}
+{{- $groupResourceNames := dict }}
+{{- $groupManagementPolicies := dict }}
+{{- $groupExternalNames := dict }}
+
+{{- range $group := $eff.groups }}
+  {{- $groupName := $group.name }}
+  {{- if and $groupName $ic.identityStoreId }}
+    {{- $groupSlug := regexReplaceAll "[^a-z0-9-]" (lower $groupName) "-" }}
+    {{- $resourceName := printf "%s-ic-group-%s" $ic.name $groupSlug }}
+    {{- $mgmtPolicies := $group.managementPolicies | default $ic.managementPolicies }}
+    {{- $extName := $group.externalName | default "" }}
+
+    {{- $groupResourceNames = set $groupResourceNames $groupName $resourceName }}
+    {{- $groupManagementPolicies = set $groupManagementPolicies $groupName $mgmtPolicies }}
+    {{- if $extName }}
+      {{- $groupExternalNames = set $groupExternalNames $groupName $extName }}
+    {{- end }}
+
+    {{- $groupConfig := dict
+      "name" $groupName
+      "resourceName" $resourceName
+      "slug" $groupSlug
+      "displayName" ($group.displayName | default $groupName)
+      "description" ($group.description | default "")
+      "managementPolicies" $mgmtPolicies
+      "externalName" $extName
+      "labels" (merge
+        (dict "hops.ops.com.ai/organization" $ic.name "aws.hops.ops.com.ai/identity-center-group" $groupSlug)
+        ($group.tags | default dict)
+      )
+      "forProvider" ($group.forProvider | default dict)
+    }}
+    {{- $groupsList = append $groupsList $groupConfig }}
+  {{- end }}
+{{- end }}
+
+# Groups render if identityStoreId is set
+{{- $render := ne $ic.identityStoreId "" }}
+
+# Set identityCenter.groups slice
+{{- $groups := dict
+  "render" $render
+  "list" $groupsList
+  "resourceNames" $groupResourceNames
+  "managementPolicies" $groupManagementPolicies
+  "externalNames" $groupExternalNames
+}}
+
+{{- $state = set $state "identityCenter" (merge $state.identityCenter (dict "groups" $groups)) }}

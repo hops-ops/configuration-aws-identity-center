@@ -1,0 +1,166 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+# =============================================================================
+# Permission Sets State Slice
+# =============================================================================
+
+{{- $eff := $state.spec.effective }}
+{{- $ic := $state.identityCenter }}
+{{- $groupResourceNames := $ic.groups.resourceNames }}
+{{- $userResourceNames := $ic.users.resourceNames }}
+
+# Build permission sets list with computed values
+{{- $permissionSetsList := list }}
+{{- $permissionSetResourceNames := dict }}
+{{- $permissionSetManagementPolicies := dict }}
+{{- $permissionSetExternalNames := dict }}
+{{- $permissionSetAssignments := dict }}
+
+{{- range $permissionSet := $eff.permissionSets }}
+  {{- $name := $permissionSet.name }}
+  {{- if $name }}
+    {{- $slug := regexReplaceAll "[^a-z0-9-]" (lower $name) "-" }}
+    {{- $resourceName := printf "%s-%s" $ic.name $slug }}
+    {{- $mgmtPolicies := $permissionSet.managementPolicies | default $ic.managementPolicies }}
+    {{- $extName := $permissionSet.externalName | default "" }}
+
+    {{- $permissionSetResourceNames = set $permissionSetResourceNames $name $resourceName }}
+    {{- $permissionSetManagementPolicies = set $permissionSetManagementPolicies $name $mgmtPolicies }}
+    {{- if $extName }}
+      {{- $permissionSetExternalNames = set $permissionSetExternalNames $name $extName }}
+    {{- end }}
+
+    # Build renderable assignments
+    {{- $assignments := list }}
+    {{- $assignToAccounts := $permissionSet.assignToAccounts | default list }}
+    {{- $assignToGroups := $permissionSet.assignToGroups | default list }}
+    {{- $assignToUsers := $permissionSet.assignToUsers | default list }}
+
+    # Expand assignToGroups x assignToAccounts
+    {{- range $accountId := $assignToAccounts }}
+      {{- $accountIdStr := printf "%v" $accountId }}
+      {{- if $accountIdStr }}
+        {{- range $groupName := $assignToGroups }}
+          {{- $principalRef := index $groupResourceNames $groupName }}
+          {{- if $principalRef }}
+            {{- $assignments = append $assignments (dict
+              "accountId" $accountIdStr
+              "principalType" "GROUP"
+              "principalName" $groupName
+              "principalRef" $principalRef
+              "principalId" ""
+            ) }}
+          {{- end }}
+        {{- end }}
+        # Expand assignToUsers x assignToAccounts
+        {{- range $userName := $assignToUsers }}
+          {{- $principalRef := index $userResourceNames $userName }}
+          {{- if $principalRef }}
+            {{- $assignments = append $assignments (dict
+              "accountId" $accountIdStr
+              "principalType" "USER"
+              "principalName" $userName
+              "principalRef" $principalRef
+              "principalId" ""
+            ) }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+
+    # Process explicit assignments
+    {{- range $explicitAssignment := $permissionSet.assignments | default list }}
+      {{- $accountId := printf "%v" $explicitAssignment.accountId }}
+      {{- if $accountId }}
+        {{- $principalBlock := $explicitAssignment.principal | default dict }}
+        {{- $principalType := upper ($principalBlock.type | default $explicitAssignment.principalType | default "USER") }}
+        {{- $principalId := $principalBlock.id | default $explicitAssignment.principalId | default "" }}
+        {{- $principalName := $principalBlock.name | default "" }}
+        {{- $principalRef := "" }}
+
+        {{- if and (not $principalId) $principalName }}
+          {{- if eq $principalType "USER" }}
+            {{- $principalRef = index $userResourceNames $principalName }}
+          {{- else if eq $principalType "GROUP" }}
+            {{- $principalRef = index $groupResourceNames $principalName }}
+          {{- end }}
+        {{- end }}
+
+        {{- if or $principalId $principalRef }}
+          {{- $assignments = append $assignments (dict
+            "accountId" $accountId
+            "principalType" $principalType
+            "principalName" $principalName
+            "principalRef" $principalRef
+            "principalId" $principalId
+          ) }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+
+    {{- $permissionSetAssignments = set $permissionSetAssignments $name $assignments }}
+
+    # Build managed policies list with slugs
+    {{- $managedPolicies := list }}
+    {{- range $policy := $permissionSet.managedPolicies | default list }}
+      {{- $policySlug := regexReplaceAll "[^a-z0-9]" (lower (regexReplaceAll ".*/" $policy "")) "" }}
+      {{- $managedPolicies = append $managedPolicies (dict
+        "arn" $policy
+        "slug" $policySlug
+        "resourceName" (printf "%s-managed-%s" $resourceName $policySlug)
+        "annotationKey" (printf "permission-set-managed-policy-%s-%s" $name $policySlug)
+      ) }}
+    {{- end }}
+
+    # Build customer managed policies list with slugs
+    {{- $customerManagedPolicies := list }}
+    {{- range $policy := $permissionSet.customerManagedPolicies | default list }}
+      {{- $policySlug := regexReplaceAll "[^a-z0-9-]" (lower $policy.name) "" }}
+      {{- $customerManagedPolicies = append $customerManagedPolicies (dict
+        "name" $policy.name
+        "path" ($policy.path | default "/")
+        "slug" $policySlug
+        "resourceName" (printf "%s-customer-%s" $resourceName $policySlug)
+        "annotationKey" (printf "permission-set-customer-managed-policy-%s-%s" $name $policySlug)
+      ) }}
+    {{- end }}
+
+    {{- $psConfig := dict
+      "name" $name
+      "resourceName" $resourceName
+      "slug" $slug
+      "description" ($permissionSet.description | default (printf "%s permission set for %s" $name $ic.name))
+      "sessionDuration" ($permissionSet.sessionDuration | default $ic.sessionDuration)
+      "relayState" ($permissionSet.relayState | default $ic.relayState)
+      "managementPolicies" $mgmtPolicies
+      "externalName" $extName
+      "inlinePolicy" ($permissionSet.inlinePolicy | default "")
+      "managedPolicies" $managedPolicies
+      "customerManagedPolicies" $customerManagedPolicies
+      "assignments" $assignments
+      "labels" (dict
+        "hops.ops.com.ai/organization" $ic.name
+        "aws.hops.ops.com.ai/identity-center-permission-set" $slug
+      )
+      "tags" (merge $ic.tags ($permissionSet.tags | default dict))
+      "forProvider" ($permissionSet.forProvider | default dict)
+    }}
+    {{- $permissionSetsList = append $permissionSetsList $psConfig }}
+  {{- end }}
+{{- end }}
+
+# Permission sets render if instanceArn is set
+{{- $render := ne $ic.instanceArn "" }}
+
+# Set identityCenter.permissionSets slice
+{{- $permissionSets := dict
+  "render" $render
+  "list" $permissionSetsList
+  "resourceNames" $permissionSetResourceNames
+  "managementPolicies" $permissionSetManagementPolicies
+  "externalNames" $permissionSetExternalNames
+  "assignments" $permissionSetAssignments
+}}
+
+{{- $state = set $state "identityCenter" (merge $state.identityCenter (dict "permissionSets" $permissionSets)) }}

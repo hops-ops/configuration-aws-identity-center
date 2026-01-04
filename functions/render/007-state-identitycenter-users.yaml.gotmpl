@@ -1,0 +1,78 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+# =============================================================================
+# Users State Slice
+# =============================================================================
+
+{{- $eff := $state.spec.effective }}
+{{- $ic := $state.identityCenter }}
+
+# Build users list with computed values
+{{- $usersList := list }}
+{{- $userResourceNames := dict }}
+{{- $userManagementPolicies := dict }}
+{{- $userExternalNames := dict }}
+{{- $userGroupMemberships := dict }}
+{{- $userGroupMembershipExternalNames := dict }}
+
+{{- range $user := $eff.users }}
+  {{- $username := $user.username }}
+  {{- if and $username $ic.identityStoreId }}
+    {{- $userSlug := regexReplaceAll "[^a-z0-9-]" (lower $username) "-" }}
+    {{- $resourceName := printf "%s-ic-user-%s" $ic.name $userSlug }}
+    {{- $mgmtPolicies := $user.managementPolicies | default $ic.managementPolicies }}
+    {{- $extName := $user.externalName | default "" }}
+
+    {{- $userResourceNames = set $userResourceNames $username $resourceName }}
+    {{- $userManagementPolicies = set $userManagementPolicies $username $mgmtPolicies }}
+    {{- if $extName }}
+      {{- $userExternalNames = set $userExternalNames $username $extName }}
+    {{- end }}
+    {{- $userGroupMemberships = set $userGroupMemberships $username ($user.groups | default list) }}
+    {{- $userGroupMembershipExternalNames = set $userGroupMembershipExternalNames $username ($user.groupMembershipExternalNames | default dict) }}
+
+    # Compute displayName: explicit > firstName+lastName > username
+    {{- $displayName := $user.displayName }}
+    {{- if not $displayName }}
+      {{- $fullName := trim (printf "%s %s" ($user.firstName | default "") ($user.lastName | default "")) }}
+      {{- $displayName = $fullName | default $username }}
+    {{- end }}
+
+    {{- $userConfig := dict
+      "username" $username
+      "resourceName" $resourceName
+      "slug" $userSlug
+      "displayName" $displayName
+      "email" ($user.email | default "")
+      "firstName" ($user.firstName | default "")
+      "lastName" ($user.lastName | default "")
+      "managementPolicies" $mgmtPolicies
+      "externalName" $extName
+      "groups" ($user.groups | default list)
+      "groupMembershipExternalNames" ($user.groupMembershipExternalNames | default dict)
+      "labels" (merge
+        (dict "hops.ops.com.ai/organization" $ic.name "aws.hops.ops.com.ai/identity-center-user" $userSlug)
+        ($user.tags | default dict)
+      )
+      "forProvider" ($user.forProvider | default dict)
+    }}
+    {{- $usersList = append $usersList $userConfig }}
+  {{- end }}
+{{- end }}
+
+# Users render if identityStoreId is set
+{{- $render := ne $ic.identityStoreId "" }}
+
+# Set identityCenter.users slice
+{{- $users := dict
+  "render" $render
+  "list" $usersList
+  "resourceNames" $userResourceNames
+  "managementPolicies" $userManagementPolicies
+  "externalNames" $userExternalNames
+  "groupMemberships" $userGroupMemberships
+  "groupMembershipExternalNames" $userGroupMembershipExternalNames
+}}
+
+{{- $state = set $state "identityCenter" (merge $state.identityCenter (dict "users" $users)) }}

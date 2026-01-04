@@ -1,0 +1,23 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+# =============================================================================
+# Core Identity Center State
+# =============================================================================
+
+{{- $eff := $state.spec.effective }}
+
+# Core state shared by all resources
+{{- $identityCenter := dict
+  "name" $eff.organizationName
+  "region" $eff.region
+  "providerConfig" $eff.providerConfigRef
+  "managementPolicies" $eff.managementPolicies
+  "identityStoreId" $eff.identityStoreId
+  "instanceArn" $eff.identityCenter.instanceArn
+  "sessionDuration" $eff.identityCenter.sessionDuration
+  "relayState" $eff.identityCenter.relayState
+  "tags" $eff.identityCenter.tags
+}}
+
+{{- $state = set $state "identityCenter" $identityCenter }}

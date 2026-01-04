@@ -1,0 +1,49 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+# =============================================================================
+# State Initialization - spec.raw and spec.effective
+# =============================================================================
+
+{{- $xr := getCompositeResource . }}
+{{- $metadata := $xr.metadata | default dict }}
+{{- $spec := $xr.spec | default dict }}
+
+# Compute effective values with defaults
+{{- $organizationName := $spec.organizationName | default $metadata.name | default "identity-center" }}
+
+{{- $providerConfigRef := $spec.providerConfigRef | default dict }}
+{{- $providerConfigName := $providerConfigRef.name | default $organizationName | default "default" }}
+{{- $providerConfigKind := $providerConfigRef.kind | default "ProviderConfig" }}
+
+{{- $identityCenter := $spec.identityCenter | default dict }}
+{{- $defaultTags := dict "hops" "true" "organization" $organizationName }}
+
+# Initialize $state
+{{- $state := dict
+  "spec" (dict
+    "raw" $spec
+    "effective" (dict
+      "organizationName" $organizationName
+      "region" ($spec.region | default "")
+      "managementPolicies" ($spec.managementPolicies | default (list "*"))
+      "providerConfigRef" (dict
+        "name" $providerConfigName
+        "kind" $providerConfigKind
+      )
+      "identityStoreId" ($spec.identityStoreId | default "")
+      "identityCenter" (dict
+        "instanceArn" ($identityCenter.instanceArn | default "")
+        "relayState" ($identityCenter.relayState | default "")
+        "sessionDuration" ($identityCenter.sessionDuration | default "PT1H")
+        "tags" (merge $defaultTags ($identityCenter.tags | default dict))
+      )
+      "groups" ($spec.groups | default list)
+      "users" ($spec.users | default list)
+      "permissionSets" ($spec.permissionSets | default list)
+    )
+  )
+  "observed" (dict)
+  "identityCenter" (dict)
+  "status" (dict)
+}}

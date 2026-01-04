@@ -1,0 +1,182 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+# =============================================================================
+# Observed State - Extract atProvider values from $.observed.resources
+# =============================================================================
+
+{{- $raw := $.observed.resources | default dict }}
+{{- $eff := $state.spec.effective }}
+
+# -----------------------------------------------------------------------------
+# Extract observed users
+# -----------------------------------------------------------------------------
+{{- $observedUsers := dict }}
+{{- range $user := $eff.users }}
+  {{- $username := $user.username }}
+  {{- $userObs := get $raw (printf "identity-center-user-%s" $username) | default dict }}
+  {{- $userAtProvider := (($userObs.resource | default dict).status | default dict).atProvider | default dict }}
+  {{- $observedUsers = set $observedUsers $username (dict
+    "id" (coalesce $userAtProvider.id $userAtProvider.userId "")
+  ) }}
+{{- end }}
+
+# -----------------------------------------------------------------------------
+# Extract observed groups
+# -----------------------------------------------------------------------------
+{{- $observedGroups := dict }}
+{{- range $group := $eff.groups }}
+  {{- $groupName := $group.name }}
+  {{- $groupObs := get $raw (printf "identity-center-group-%s" $groupName) | default dict }}
+  {{- $groupAtProvider := (($groupObs.resource | default dict).status | default dict).atProvider | default dict }}
+  {{- $observedGroups = set $observedGroups $groupName (dict
+    "id" (coalesce $groupAtProvider.id $groupAtProvider.groupId "")
+  ) }}
+{{- end }}
+
+# -----------------------------------------------------------------------------
+# Extract observed permission sets and build readiness maps
+# -----------------------------------------------------------------------------
+{{- $observedPermissionSets := dict }}
+{{- $permissionSetReadyMap := dict }}
+{{- $inlinePolicyReadyMap := dict }}
+{{- $managedPolicyReadyMap := dict }}
+{{- $customerManagedReadyMap := dict }}
+{{- $accountAssignmentReadyMap := dict }}
+
+{{- range $permissionSet := $eff.permissionSets }}
+  {{- $name := $permissionSet.name }}
+  {{- $psObs := get $raw (printf "permission-set-%s" $name) | default dict }}
+  {{- $psResource := $psObs.resource | default dict }}
+  {{- $psStatus := $psResource.status | default dict }}
+  {{- $psAtProvider := $psStatus.atProvider | default dict }}
+
+  # Check if permission set is ready
+  {{- $psReady := false }}
+  {{- range $psStatus.conditions | default list }}
+    {{- if and (eq (get . "type") "Ready") (eq (get . "status") "True") }}
+      {{- $psReady = true }}
+    {{- end }}
+  {{- end }}
+
+  {{- $observedPermissionSets = set $observedPermissionSets $name (dict
+    "arn" ($psAtProvider.arn | default "")
+    "ready" $psReady
+  ) }}
+  {{- $permissionSetReadyMap = set $permissionSetReadyMap $name $psReady }}
+
+  # Inline policy readiness
+  {{- if $permissionSet.inlinePolicy }}
+    {{- $inlineObs := get $raw (printf "permission-set-inline-policy-%s" $name) | default dict }}
+    {{- $inlineReady := false }}
+    {{- range (($inlineObs.resource | default dict).status | default dict).conditions | default list }}
+      {{- if and (eq (get . "type") "Ready") (eq (get . "status") "True") }}
+        {{- $inlineReady = true }}
+      {{- end }}
+    {{- end }}
+    {{- $inlinePolicyReadyMap = set $inlinePolicyReadyMap $name $inlineReady }}
+  {{- end }}
+
+  # Managed policy readiness
+  {{- range $managedPolicy := $permissionSet.managedPolicies | default list }}
+    {{- $policySlug := regexReplaceAll "[^a-z0-9]" (lower (regexReplaceAll ".*/" $managedPolicy "")) "" }}
+    {{- $managedKey := printf "permission-set-managed-policy-%s-%s" $name $policySlug }}
+    {{- $managedObs := get $raw $managedKey | default dict }}
+    {{- $managedReady := false }}
+    {{- range (($managedObs.resource | default dict).status | default dict).conditions | default list }}
+      {{- if and (eq (get . "type") "Ready") (eq (get . "status") "True") }}
+        {{- $managedReady = true }}
+      {{- end }}
+    {{- end }}
+    {{- $managedPolicyReadyMap = set $managedPolicyReadyMap $managedKey $managedReady }}
+  {{- end }}
+
+  # Customer managed policy readiness
+  {{- range $customerPolicy := $permissionSet.customerManagedPolicies | default list }}
+    {{- $policySlug := regexReplaceAll "[^a-z0-9-]" (lower $customerPolicy.name) "" }}
+    {{- $customerKey := printf "permission-set-customer-managed-policy-%s-%s" $name $policySlug }}
+    {{- $customerObs := get $raw $customerKey | default dict }}
+    {{- $customerReady := false }}
+    {{- range (($customerObs.resource | default dict).status | default dict).conditions | default list }}
+      {{- if and (eq (get . "type") "Ready") (eq (get . "status") "True") }}
+        {{- $customerReady = true }}
+      {{- end }}
+    {{- end }}
+    {{- $customerManagedReadyMap = set $customerManagedReadyMap $customerKey $customerReady }}
+  {{- end }}
+
+  # Account assignment readiness - need to build assignment keys the same way as in state
+  {{- $assignToAccounts := $permissionSet.assignToAccounts | default list }}
+  {{- $assignToGroups := $permissionSet.assignToGroups | default list }}
+  {{- $assignToUsers := $permissionSet.assignToUsers | default list }}
+
+  # Check assignments from assignToGroups x assignToAccounts
+  {{- range $accountId := $assignToAccounts }}
+    {{- $accountIdStr := printf "%v" $accountId }}
+    {{- range $groupName := $assignToGroups }}
+      {{- $principalSlug := regexReplaceAll "[^a-z0-9-]" (lower $groupName) "" }}
+      {{- $assignmentSlug := printf "%s-group-%s" $accountIdStr $principalSlug }}
+      {{- $assignmentKey := printf "permission-set-assignment-%s-%s" $name $assignmentSlug }}
+      {{- $assignmentObs := get $raw $assignmentKey | default dict }}
+      {{- $assignmentReady := false }}
+      {{- range (($assignmentObs.resource | default dict).status | default dict).conditions | default list }}
+        {{- if and (eq (get . "type") "Ready") (eq (get . "status") "True") }}
+          {{- $assignmentReady = true }}
+        {{- end }}
+      {{- end }}
+      {{- $accountAssignmentReadyMap = set $accountAssignmentReadyMap $assignmentKey $assignmentReady }}
+    {{- end }}
+    # Check assignments from assignToUsers x assignToAccounts
+    {{- range $userName := $assignToUsers }}
+      {{- $principalSlug := regexReplaceAll "[^a-z0-9-]" (lower $userName) "" }}
+      {{- $assignmentSlug := printf "%s-user-%s" $accountIdStr $principalSlug }}
+      {{- $assignmentKey := printf "permission-set-assignment-%s-%s" $name $assignmentSlug }}
+      {{- $assignmentObs := get $raw $assignmentKey | default dict }}
+      {{- $assignmentReady := false }}
+      {{- range (($assignmentObs.resource | default dict).status | default dict).conditions | default list }}
+        {{- if and (eq (get . "type") "Ready") (eq (get . "status") "True") }}
+          {{- $assignmentReady = true }}
+        {{- end }}
+      {{- end }}
+      {{- $accountAssignmentReadyMap = set $accountAssignmentReadyMap $assignmentKey $assignmentReady }}
+    {{- end }}
+  {{- end }}
+
+  # Check explicit assignments
+  {{- range $explicitAssignment := $permissionSet.assignments | default list }}
+    {{- $accountId := printf "%v" $explicitAssignment.accountId }}
+    {{- $principalBlock := $explicitAssignment.principal | default dict }}
+    {{- $principalType := upper ($principalBlock.type | default $explicitAssignment.principalType | default "USER") }}
+    {{- $principalName := $principalBlock.name | default "" }}
+    {{- $principalId := $principalBlock.id | default $explicitAssignment.principalId | default "" }}
+    {{- $principalIdentifier := or $principalName $principalId }}
+    {{- if and $accountId $principalIdentifier }}
+      {{- $principalSlug := regexReplaceAll "[^a-z0-9-]" (lower $principalIdentifier) "" }}
+      {{- $typeSlug := lower $principalType }}
+      {{- $assignmentSlug := printf "%s-%s-%s" $accountId $typeSlug $principalSlug }}
+      {{- $assignmentKey := printf "permission-set-assignment-%s-%s" $name $assignmentSlug }}
+      {{- $assignmentObs := get $raw $assignmentKey | default dict }}
+      {{- $assignmentReady := false }}
+      {{- range (($assignmentObs.resource | default dict).status | default dict).conditions | default list }}
+        {{- if and (eq (get . "type") "Ready") (eq (get . "status") "True") }}
+          {{- $assignmentReady = true }}
+        {{- end }}
+      {{- end }}
+      {{- $accountAssignmentReadyMap = set $accountAssignmentReadyMap $assignmentKey $assignmentReady }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
+# Set $state.observed
+{{- $state = set $state "observed" (dict
+  "users" $observedUsers
+  "groups" $observedGroups
+  "permissionSets" $observedPermissionSets
+  "readiness" (dict
+    "permissionSets" $permissionSetReadyMap
+    "inlinePolicies" $inlinePolicyReadyMap
+    "managedPolicies" $managedPolicyReadyMap
+    "customerManagedPolicies" $customerManagedReadyMap
+    "accountAssignments" $accountAssignmentReadyMap
+  )
+) }}
