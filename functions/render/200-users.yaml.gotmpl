@@ -1,0 +1,95 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+# =============================================================================
+# Identity Store Users and Group Memberships
+# =============================================================================
+
+{{- if $state.identityCenter.users.render }}
+  {{- $ic := $state.identityCenter }}
+  {{- $groupResourceNames := $ic.groups.resourceNames }}
+
+  {{- range $user := $ic.users.list }}
+
+---
+
+apiVersion: identitystore.aws.m.upbound.io/v1beta1
+kind: User
+metadata:
+  name: {{ $user.resourceName }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "identity-center-user-%s" $user.username) }}
+    {{- if $user.externalName }}
+    crossplane.io/external-name: {{ $user.externalName | quote }}
+    {{- end }}
+  labels:
+    {{- toYaml $user.labels | nindent 4 }}
+spec:
+  managementPolicies: {{ toYaml $user.managementPolicies | nindent 4 }}
+  forProvider:
+    identityStoreId: {{ $ic.identityStoreId }}
+    displayName: {{ $user.displayName }}
+    userName: {{ $user.username }}
+    {{- if $ic.region }}
+    region: {{ $ic.region }}
+    {{- end }}
+    name:
+      {{- if $user.firstName }}
+      givenName: {{ $user.firstName }}
+      {{- else }}
+      givenName: {{ $user.displayName }}
+      {{- end }}
+      {{- if $user.lastName }}
+      familyName: {{ $user.lastName }}
+      {{- end }}
+    {{- if $user.email }}
+    emails:
+      value: {{ $user.email }}
+      type: work
+      primary: true
+    {{- end }}
+    {{- with $user.forProvider }}
+    {{ toYaml . | nindent 4 }}
+    {{- end }}
+  providerConfigRef:
+    name: {{ $ic.providerConfig.name }}
+    kind: {{ $ic.providerConfig.kind }}
+
+    {{- /* Group Memberships */}}
+    {{- range $groupName := $user.groups }}
+      {{- $groupResourceName := index $groupResourceNames $groupName }}
+      {{- if $groupResourceName }}
+        {{- $membershipSlug := regexReplaceAll "[^a-z0-9-]" (lower (printf "%s-%s" $user.username $groupName)) "-" }}
+        {{- $membershipExternalName := index $user.groupMembershipExternalNames $groupName | default "" }}
+
+---
+
+apiVersion: identitystore.aws.m.upbound.io/v1beta1
+kind: GroupMembership
+metadata:
+  name: {{ printf "%s-ic-membership-%s" $ic.name $membershipSlug }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "identity-center-group-membership-%s-%s" $user.username $groupName) }}
+    {{- if $membershipExternalName }}
+    crossplane.io/external-name: {{ $membershipExternalName | quote }}
+    {{- end }}
+spec:
+  managementPolicies: {{ toYaml $user.managementPolicies | nindent 4 }}
+  forProvider:
+    identityStoreId: {{ $ic.identityStoreId }}
+    memberIdRef:
+      name: {{ $user.resourceName }}
+    groupIdRef:
+      name: {{ $groupResourceName }}
+    {{- if $ic.region }}
+    region: {{ $ic.region }}
+    {{- end }}
+  providerConfigRef:
+    name: {{ $ic.providerConfig.name }}
+    kind: {{ $ic.providerConfig.kind }}
+
+      {{- end }}
+    {{- end }}
+
+  {{- end }}
+{{- end }}

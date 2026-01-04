@@ -1,0 +1,44 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+# =============================================================================
+# Identity Store Groups
+# =============================================================================
+
+{{- if $state.identityCenter.groups.render }}
+  {{- $ic := $state.identityCenter }}
+  {{- range $group := $ic.groups.list }}
+
+---
+
+apiVersion: identitystore.aws.m.upbound.io/v1beta1
+kind: Group
+metadata:
+  name: {{ $group.resourceName }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "identity-center-group-%s" $group.name) }}
+    {{- if $group.externalName }}
+    crossplane.io/external-name: {{ $group.externalName | quote }}
+    {{- end }}
+  labels:
+    {{- toYaml $group.labels | nindent 4 }}
+spec:
+  managementPolicies: {{ toYaml $group.managementPolicies | nindent 4 }}
+  forProvider:
+    identityStoreId: {{ $ic.identityStoreId }}
+    displayName: {{ $group.displayName }}
+    {{- if $ic.region }}
+    region: {{ $ic.region }}
+    {{- end }}
+    {{- if $group.description }}
+    description: {{ $group.description }}
+    {{- end }}
+    {{- with $group.forProvider }}
+    {{ toYaml . | nindent 4 }}
+    {{- end }}
+  providerConfigRef:
+    name: {{ $ic.providerConfig.name }}
+    kind: {{ $ic.providerConfig.kind }}
+
+  {{- end }}
+{{- end }}

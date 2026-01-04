@@ -1,0 +1,223 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+# =============================================================================
+# Permission Sets, Inline Policies, and Policy Attachments
+# =============================================================================
+
+{{- if $state.identityCenter.permissionSets.render }}
+  {{- $ic := $state.identityCenter }}
+  {{- $obs := $state.observed }}
+
+  {{- range $ps := $ic.permissionSets.list }}
+    {{- $psReady := get $obs.readiness.permissionSets $ps.name | default false }}
+
+---
+
+apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
+kind: PermissionSet
+metadata:
+  name: {{ $ps.resourceName }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "permission-set-%s" $ps.name) }}
+    {{- if $ps.externalName }}
+    crossplane.io/external-name: {{ $ps.externalName | quote }}
+    {{- end }}
+  labels:
+    {{- toYaml $ps.labels | nindent 4 }}
+spec:
+  managementPolicies: {{ toYaml $ps.managementPolicies | nindent 4 }}
+  forProvider:
+    instanceArn: {{ $ic.instanceArn }}
+    name: {{ $ps.name }}
+    description: {{ $ps.description }}
+    sessionDuration: {{ $ps.sessionDuration }}
+    {{- if $ic.region }}
+    region: {{ $ic.region }}
+    {{- end }}
+    {{- if $ps.relayState }}
+    relayState: {{ $ps.relayState }}
+    {{- end }}
+    {{- if $ps.tags }}
+    tags:
+      {{- toYaml $ps.tags | nindent 6 }}
+    {{- end }}
+    {{- with $ps.forProvider }}
+    {{ toYaml . | nindent 4 }}
+    {{- end }}
+  providerConfigRef:
+    name: {{ $ic.providerConfig.name }}
+    kind: {{ $ic.providerConfig.kind }}
+
+    {{- /* Inline Policy */}}
+    {{- if $ps.inlinePolicy }}
+
+---
+
+apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
+kind: PermissionSetInlinePolicy
+metadata:
+  name: {{ printf "%s-inline" $ps.resourceName }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "permission-set-inline-policy-%s" $ps.name) }}
+  labels:
+    {{- toYaml $ps.labels | nindent 4 }}
+spec:
+  managementPolicies: {{ toYaml $ps.managementPolicies | nindent 4 }}
+  forProvider:
+    instanceArn: {{ $ic.instanceArn }}
+    inlinePolicy: |
+{{ $ps.inlinePolicy | indent 6 }}
+    permissionSetArnRef:
+      name: {{ $ps.resourceName }}
+    {{- if $ic.region }}
+    region: {{ $ic.region }}
+    {{- end }}
+  providerConfigRef:
+    name: {{ $ic.providerConfig.name }}
+    kind: {{ $ic.providerConfig.kind }}
+
+      {{- /* Usage: PermissionSet protected by InlinePolicy */}}
+      {{- $inlineReady := get $obs.readiness.inlinePolicies $ps.name | default false }}
+      {{- if and $psReady $inlineReady }}
+
+---
+
+apiVersion: protection.crossplane.io/v1beta1
+kind: Usage
+metadata:
+  name: {{ printf "of-%s-by-%s-inline" $ps.resourceName $ps.resourceName }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "permission-set-inline-policy-usage-%s" $ps.name) }}
+spec:
+  replayDeletion: true
+  of:
+    apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
+    kind: PermissionSet
+    resourceRef:
+      name: {{ $ps.resourceName }}
+  by:
+    apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
+    kind: PermissionSetInlinePolicy
+    resourceRef:
+      name: {{ printf "%s-inline" $ps.resourceName }}
+
+      {{- end }}
+    {{- end }}
+
+    {{- /* Managed Policy Attachments */}}
+    {{- range $policy := $ps.managedPolicies }}
+
+---
+
+apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
+kind: ManagedPolicyAttachment
+metadata:
+  name: {{ $policy.resourceName }}
+  annotations:
+    {{ setResourceNameAnnotation $policy.annotationKey }}
+  labels:
+    {{- toYaml $ps.labels | nindent 4 }}
+spec:
+  managementPolicies: {{ toYaml $ps.managementPolicies | nindent 4 }}
+  forProvider:
+    instanceArn: {{ $ic.instanceArn }}
+    managedPolicyArn: {{ $policy.arn }}
+    permissionSetArnRef:
+      name: {{ $ps.resourceName }}
+    {{- if $ic.region }}
+    region: {{ $ic.region }}
+    {{- end }}
+  providerConfigRef:
+    name: {{ $ic.providerConfig.name }}
+    kind: {{ $ic.providerConfig.kind }}
+
+      {{- /* Usage: PermissionSet protected by ManagedPolicyAttachment */}}
+      {{- $managedReady := get $obs.readiness.managedPolicies $policy.annotationKey | default false }}
+      {{- if and $psReady $managedReady }}
+
+---
+
+apiVersion: protection.crossplane.io/v1beta1
+kind: Usage
+metadata:
+  name: {{ printf "of-%s-by-%s" $ps.resourceName $policy.resourceName }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "%s-usage" $policy.annotationKey) }}
+spec:
+  replayDeletion: true
+  of:
+    apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
+    kind: PermissionSet
+    resourceRef:
+      name: {{ $ps.resourceName }}
+  by:
+    apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
+    kind: ManagedPolicyAttachment
+    resourceRef:
+      name: {{ $policy.resourceName }}
+
+      {{- end }}
+    {{- end }}
+
+    {{- /* Customer Managed Policy Attachments */}}
+    {{- range $policy := $ps.customerManagedPolicies }}
+
+---
+
+apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
+kind: CustomerManagedPolicyAttachment
+metadata:
+  name: {{ $policy.resourceName }}
+  annotations:
+    {{ setResourceNameAnnotation $policy.annotationKey }}
+  labels:
+    {{- toYaml $ps.labels | nindent 4 }}
+spec:
+  managementPolicies: {{ toYaml $ps.managementPolicies | nindent 4 }}
+  forProvider:
+    instanceArn: {{ $ic.instanceArn }}
+    permissionSetArnRef:
+      name: {{ $ps.resourceName }}
+    customerManagedPolicyReference:
+      name: {{ $policy.name }}
+      {{- if $policy.path }}
+      path: {{ $policy.path }}
+      {{- end }}
+    {{- if $ic.region }}
+    region: {{ $ic.region }}
+    {{- end }}
+  providerConfigRef:
+    name: {{ $ic.providerConfig.name }}
+    kind: {{ $ic.providerConfig.kind }}
+
+      {{- /* Usage: PermissionSet protected by CustomerManagedPolicyAttachment */}}
+      {{- $customerReady := get $obs.readiness.customerManagedPolicies $policy.annotationKey | default false }}
+      {{- if and $psReady $customerReady }}
+
+---
+
+apiVersion: protection.crossplane.io/v1beta1
+kind: Usage
+metadata:
+  name: {{ printf "of-%s-by-%s" $ps.resourceName $policy.resourceName }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "%s-usage" $policy.annotationKey) }}
+spec:
+  replayDeletion: true
+  of:
+    apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
+    kind: PermissionSet
+    resourceRef:
+      name: {{ $ps.resourceName }}
+  by:
+    apiVersion: ssoadmin.aws.m.upbound.io/v1beta1
+    kind: CustomerManagedPolicyAttachment
+    resourceRef:
+      name: {{ $policy.resourceName }}
+
+      {{- end }}
+    {{- end }}
+
+  {{- end }}
+{{- end }}

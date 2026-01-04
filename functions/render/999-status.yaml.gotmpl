@@ -1,0 +1,48 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+# =============================================================================
+# Status Output - Simply outputs $state.status
+# =============================================================================
+
+{{- $s := $state.status }}
+
+apiVersion: aws.hops.ops.com.ai/v1alpha1
+kind: IdentityCenter
+status:
+  organizationName: {{ $s.organizationName }}
+  identityCenter:
+    instanceArn: {{ $s.identityCenter.instanceArn }}
+    ready: {{ $s.identityCenter.ready }}
+  identityStore:
+    id: {{ $s.identityStore.id }}
+{{- if $s.identityStore.users }}
+    users:
+{{- range $user := $s.identityStore.users }}
+      - name: {{ $user.name }}
+        id: {{ $user.id }}
+{{- end }}
+{{- end }}
+{{- if $s.identityStore.groups }}
+    groups:
+{{- range $group := $s.identityStore.groups }}
+      - name: {{ $group.name }}
+        id: {{ $group.id }}
+{{- end }}
+{{- end }}
+{{- if $s.permissionSets }}
+  permissionSets:
+{{- range $ps := $s.permissionSets }}
+    - name: {{ $ps.name }}
+      arn: {{ $ps.arn }}
+{{- if $ps.assignments }}
+      assignments:
+      {{- range $assignment := $ps.assignments }}
+      - accountId: "{{ $assignment.accountId }}"
+        principalType: {{ $assignment.principalType }}
+        principalId: {{ $assignment.principalId }}
+        principalName: {{ $assignment.principalName }}
+      {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,87 @@
+# code: language=yaml
+# yaml-language-server: $schema=../../.up/json/models/index.schema.json
+
+# =============================================================================
+# Status State Slice - Computed status for XRD output
+# =============================================================================
+
+{{- $ic := $state.identityCenter }}
+{{- $obs := $state.observed }}
+
+# Compute identity center status
+{{- $identityCenterStatus := dict
+  "instanceArn" $ic.instanceArn
+  "ready" (ne $ic.instanceArn "")
+}}
+
+# Build users status list
+{{- $usersStatus := list }}
+{{- range $user := $ic.users.list }}
+  {{- $observedUser := get $obs.users $user.username | default dict }}
+  {{- $usersStatus = append $usersStatus (dict
+    "name" $user.username
+    "id" ($observedUser.id | default "")
+  ) }}
+{{- end }}
+
+# Build groups status list
+{{- $groupsStatus := list }}
+{{- range $group := $ic.groups.list }}
+  {{- $observedGroup := get $obs.groups $group.name | default dict }}
+  {{- $groupsStatus = append $groupsStatus (dict
+    "name" $group.name
+    "id" ($observedGroup.id | default "")
+  ) }}
+{{- end }}
+
+# Build permission sets status list
+{{- $permissionSetsStatus := list }}
+{{- range $ps := $ic.permissionSets.list }}
+  {{- $observedPS := get $obs.permissionSets $ps.name | default dict }}
+
+  # Build assignments status
+  {{- $assignmentsStatus := list }}
+  {{- range $assignment := $ps.assignments }}
+    {{- $principalType := upper ($assignment.principalType | default "USER") }}
+    {{- $principalId := $assignment.principalId }}
+    {{- $principalName := $assignment.principalName }}
+
+    # Resolve principalId from observed if using ref
+    {{- if and (not $principalId) $principalName }}
+      {{- if eq $principalType "USER" }}
+        {{- $principalId = (get $obs.users $principalName | default dict).id | default "" }}
+      {{- else if eq $principalType "GROUP" }}
+        {{- $principalId = (get $obs.groups $principalName | default dict).id | default "" }}
+      {{- end }}
+    {{- end }}
+
+    {{- $assignmentsStatus = append $assignmentsStatus (dict
+      "accountId" $assignment.accountId
+      "principalType" $principalType
+      "principalId" $principalId
+      "principalName" ($principalName | default "")
+    ) }}
+  {{- end }}
+
+  {{- $permissionSetsStatus = append $permissionSetsStatus (dict
+    "name" $ps.name
+    "arn" ($observedPS.arn | default "")
+    "assignments" $assignmentsStatus
+  ) }}
+{{- end }}
+
+# Set $state.status
+{{- $state = set $state "status" (dict
+  "organizationName" $ic.name
+  "identityCenter" $identityCenterStatus
+  "identityStore" (dict
+    "id" $ic.identityStoreId
+    "users" $usersStatus
+    "groups" $groupsStatus
+  )
+  "permissionSets" $permissionSetsStatus
+  "spec" (dict
+    "raw" $state.spec.raw
+    "effective" $state.spec.effective
+  )
+) }}
