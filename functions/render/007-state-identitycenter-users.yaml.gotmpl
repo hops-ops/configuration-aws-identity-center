@@ -53,7 +53,7 @@
       "groupMembershipExternalNames" ($user.groupMembershipExternalNames | default dict)
       "labels" (merge
         $ic.labels
-        (dict "aws.hops.ops.com.ai/identity-center-user" $userSlug)
+        (dict "hops.ops.com.ai/identity-center-user" $userSlug)
       )
       "forProvider" ($user.forProvider | default dict)
     }}

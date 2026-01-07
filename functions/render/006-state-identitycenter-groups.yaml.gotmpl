@@ -38,7 +38,7 @@
       "externalName" $extName
       "labels" (merge
         $ic.labels
-        (dict "aws.hops.ops.com.ai/identity-center-group" $groupSlug)
+        (dict "hops.ops.com.ai/identity-center-group" $groupSlug)
       )
       "forProvider" ($group.forProvider | default dict)
     }}

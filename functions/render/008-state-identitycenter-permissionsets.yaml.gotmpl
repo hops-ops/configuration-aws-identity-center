@@ -142,7 +142,7 @@
       "labels" (merge
         $ic.labels
         (dict
-          "aws.hops.ops.com.ai/identity-center-permission-set" $slug
+          "hops.ops.com.ai/identity-center-permission-set" $slug
         )
       )
       "tags" (merge $ic.tags ($permissionSet.tags | default dict))
