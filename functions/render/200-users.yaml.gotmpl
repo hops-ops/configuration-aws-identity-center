@@ -60,7 +60,9 @@ spec:
       {{- $groupResourceName := index $groupResourceNames $groupName }}
       {{- if $groupResourceName }}
         {{- $membershipSlug := regexReplaceAll "[^a-z0-9-]" (lower (printf "%s-%s" $user.username $groupName)) "-" }}
-        {{- $membershipExternalName := index $user.groupMembershipExternalNames $groupName | default "" }}
+        {{- /* Look up external name from top-level imports.groupMemberships using "username/groupName" key */}}
+        {{- $membershipKey := printf "%s/%s" $user.username $groupName }}
+        {{- $membershipExternalName := index $ic.imports.groupMemberships $membershipKey | default "" }}
 
 ---
 

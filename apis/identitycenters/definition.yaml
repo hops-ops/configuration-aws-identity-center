@@ -47,6 +47,42 @@ spec:
                   - LateInitialize
                 default:
                 - "*"
+              imports:
+                type: object
+                description: |
+                  External names of existing AWS resources to import into Crossplane management.
+                  Use with managementPolicies excluding "Delete" to adopt without risk of deletion.
+                  Leave fields empty to create new resources.
+                properties:
+                  users:
+                    type: object
+                    description: |
+                      Map of user display names to Identity Store User IDs.
+                      Example: { "john.doe": "84815e08-..." }
+                    additionalProperties:
+                      type: string
+                  groups:
+                    type: object
+                    description: |
+                      Map of group names to Identity Store Group IDs.
+                      Example: { "Admins": "94815e08-..." }
+                    additionalProperties:
+                      type: string
+                  groupMemberships:
+                    type: object
+                    description: |
+                      Map of "username/groupName" to Identity Store Group Membership IDs.
+                      Example: { "john.doe/Admins": "115b85b0-..." }
+                    additionalProperties:
+                      type: string
+                  permissionSets:
+                    type: object
+                    description: |
+                      Map of permission set names to external name format.
+                      Format: "PERMISSION_SET_ARN,INSTANCE_ARN"
+                      Example: { "AdminAccess": "arn:aws:sso:::permissionSet/.../ps-...,arn:aws:sso:::instance/..." }
+                    additionalProperties:
+                      type: string
               providerConfigRef:
                 type: object
                 description: Reference to the ProviderConfig used for all AWS API calls.
@@ -99,11 +135,6 @@ spec:
                       type: string
                     description:
                       type: string
-                    externalName:
-                      type: string
-                      description: |
-                        Identity Store Group ID to adopt (e.g., 94815e08-...).
-                        When set, Crossplane imports the existing group instead of creating a new one.
                     managementPolicies:
                       type: array
                       description: |
@@ -146,11 +177,6 @@ spec:
                       type: string
                     displayName:
                       type: string
-                    externalName:
-                      type: string
-                      description: |
-                        Identity Store User ID to adopt (e.g., 84815e08-...).
-                        When set, Crossplane imports the existing user instead of creating a new one.
                     managementPolicies:
                       type: array
                       description: |
@@ -169,11 +195,6 @@ spec:
                       type: array
                       description: Group names the user should join.
                       items:
-                        type: string
-                    groupMembershipExternalNames:
-                      type: object
-                      description: Optional map of group names to Identity Store membership IDs for adopting existing memberships.
-                      additionalProperties:
                         type: string
                     tags:
                       type: object
@@ -200,12 +221,6 @@ spec:
                       type: string
                     sessionDuration:
                       type: string
-                    externalName:
-                      type: string
-                      description: |
-                        Permission Set ARN to adopt (e.g., arn:aws:sso:::permissionSet/ssoins-.../ps-...).
-                        Provider expects PERMISSION_SET_ARN,INSTANCE_ARN; include the instance ARN when importing existing permission sets.
-                        When set, Crossplane imports the existing permission set instead of creating a new one.
                     managementPolicies:
                       type: array
                       description: |

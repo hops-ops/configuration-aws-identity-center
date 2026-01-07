@@ -71,12 +71,26 @@ _items = [
                             instanceArn: _instance_arn
                             sessionDuration: "PT2H"
                         }
+                        # Import existing resources via top-level imports object
+                        imports: {
+                            groups: {
+                                (_persistent_group_name): _persistent_group_id
+                            }
+                            users: {
+                                (_persistent_user_name): _persistent_user_id
+                            }
+                            groupMemberships: {
+                                (_persistent_user_name + "/" + _persistent_group_name): _persistent_membership_id
+                            }
+                            permissionSets: {
+                                (_persistent_permission_set_name): _persistent_permission_set_external_name
+                            }
+                        }
                         groups: [
-                            # Persistent group - imported and orphaned (won't be deleted)
+                            # Persistent group - imported via imports.groups, orphaned (won't be deleted)
                             {
                                 name: _persistent_group_name
                                 displayName: "E2E Persistent Admins"
-                                externalName: _persistent_group_id
                                 managementPolicies: ["Create", "Observe", "Update", "LateInitialize"]
                             }
                             # Timestamped group - created and deleted each run
@@ -86,18 +100,14 @@ _items = [
                             }
                         ]
                         users: [
-                            # Persistent user - imported and orphaned (won't be deleted)
+                            # Persistent user - imported via imports.users, orphaned (won't be deleted)
                             {
                                 username: _persistent_user_name
                                 email: "hops-e2e-admin@ops.com.ai"
                                 firstName: "E2E"
                                 lastName: "Persistent"
-                                externalName: _persistent_user_id
                                 managementPolicies: ["Create", "Observe", "Update", "LateInitialize"]
                                 groups: [_persistent_group_name]
-                                groupMembershipExternalNames: {
-                                    (_persistent_group_name): _persistent_membership_id
-                                }
                             }
                             # Timestamped user - created and deleted each run
                             {
@@ -109,11 +119,10 @@ _items = [
                             }
                         ]
                         permissionSets: [
-                            # Persistent permission set - imported and orphaned
+                            # Persistent permission set - imported via imports.permissionSets, orphaned
                             {
                                 name: _persistent_permission_set_name
                                 description: "Persistent permission set for e2e testing"
-                                externalName: _persistent_permission_set_external_name
                                 managementPolicies: ["Create", "Observe", "Update", "LateInitialize"]
                                 managedPolicies: [
                                     "arn:aws:iam::aws:policy/ReadOnlyAccess"

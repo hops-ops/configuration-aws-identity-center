@@ -17,6 +17,7 @@ EXAMPLES := \
     examples/identitycenters/groups.yaml:: \
     examples/identitycenters/groups.yaml::examples/test/mocks/observed-resources/groups/steps/1/ \
     examples/identitycenters/groups.yaml::examples/test/mocks/observed-resources/groups/steps/2/ \
+    examples/identitycenters/import.yaml:: \
     examples/identitycenters/test-no-users.yaml::
 
 clean:

@@ -12,7 +12,6 @@
 {{- $groupsList := list }}
 {{- $groupResourceNames := dict }}
 {{- $groupManagementPolicies := dict }}
-{{- $groupExternalNames := dict }}
 
 {{- range $group := $eff.groups }}
   {{- $groupName := $group.name }}
@@ -20,13 +19,11 @@
     {{- $groupSlug := regexReplaceAll "[^a-z0-9-]" (lower $groupName) "-" }}
     {{- $resourceName := printf "%s-ic-group-%s" $ic.name $groupSlug }}
     {{- $mgmtPolicies := $group.managementPolicies | default $ic.managementPolicies }}
-    {{- $extName := $group.externalName | default "" }}
+    {{- /* Look up external name from top-level imports.groups */}}
+    {{- $extName := index $ic.imports.groups $groupName | default "" }}
 
     {{- $groupResourceNames = set $groupResourceNames $groupName $resourceName }}
     {{- $groupManagementPolicies = set $groupManagementPolicies $groupName $mgmtPolicies }}
-    {{- if $extName }}
-      {{- $groupExternalNames = set $groupExternalNames $groupName $extName }}
-    {{- end }}
 
     {{- $groupConfig := dict
       "name" $groupName
@@ -55,7 +52,6 @@
   "list" $groupsList
   "resourceNames" $groupResourceNames
   "managementPolicies" $groupManagementPolicies
-  "externalNames" $groupExternalNames
 }}
 
 {{- $state = set $state "identityCenter" (merge $state.identityCenter (dict "groups" $groups)) }}

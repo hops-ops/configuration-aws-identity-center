@@ -12,9 +12,7 @@
 {{- $usersList := list }}
 {{- $userResourceNames := dict }}
 {{- $userManagementPolicies := dict }}
-{{- $userExternalNames := dict }}
 {{- $userGroupMemberships := dict }}
-{{- $userGroupMembershipExternalNames := dict }}
 
 {{- range $user := $eff.users }}
   {{- $username := $user.username }}
@@ -22,15 +20,12 @@
     {{- $userSlug := regexReplaceAll "[^a-z0-9-]" (lower $username) "-" }}
     {{- $resourceName := printf "%s-ic-user-%s" $ic.name $userSlug }}
     {{- $mgmtPolicies := $user.managementPolicies | default $ic.managementPolicies }}
-    {{- $extName := $user.externalName | default "" }}
+    {{- /* Look up external name from top-level imports.users */}}
+    {{- $extName := index $ic.imports.users $username | default "" }}
 
     {{- $userResourceNames = set $userResourceNames $username $resourceName }}
     {{- $userManagementPolicies = set $userManagementPolicies $username $mgmtPolicies }}
-    {{- if $extName }}
-      {{- $userExternalNames = set $userExternalNames $username $extName }}
-    {{- end }}
     {{- $userGroupMemberships = set $userGroupMemberships $username ($user.groups | default list) }}
-    {{- $userGroupMembershipExternalNames = set $userGroupMembershipExternalNames $username ($user.groupMembershipExternalNames | default dict) }}
 
     # Compute displayName: explicit > firstName+lastName > username
     {{- $displayName := $user.displayName }}
@@ -50,7 +45,6 @@
       "managementPolicies" $mgmtPolicies
       "externalName" $extName
       "groups" ($user.groups | default list)
-      "groupMembershipExternalNames" ($user.groupMembershipExternalNames | default dict)
       "labels" (merge
         $ic.labels
         (dict "hops.ops.com.ai/identity-center-user" $userSlug)
@@ -70,9 +64,7 @@
   "list" $usersList
   "resourceNames" $userResourceNames
   "managementPolicies" $userManagementPolicies
-  "externalNames" $userExternalNames
   "groupMemberships" $userGroupMemberships
-  "groupMembershipExternalNames" $userGroupMembershipExternalNames
 }}
 
 {{- $state = set $state "identityCenter" (merge $state.identityCenter (dict "users" $users)) }}

@@ -17,6 +17,7 @@
 {{- $providerConfigKind := $providerConfigRef.kind | default "ProviderConfig" }}
 
 {{- $identityCenter := $spec.identityCenter | default dict }}
+{{- $imports := $spec.imports | default dict }}
 {{- $defaultTags := dict "hops" "true" "organization" $organizationName }}
 
 {{- /* Default labels: managed=true + <kind>=<name> */}}
@@ -33,6 +34,12 @@
       "organizationName" $organizationName
       "region" ($spec.region | default "")
       "managementPolicies" ($spec.managementPolicies | default (list "*"))
+      "imports" (dict
+        "users" ($imports.users | default dict)
+        "groups" ($imports.groups | default dict)
+        "groupMemberships" ($imports.groupMemberships | default dict)
+        "permissionSets" ($imports.permissionSets | default dict)
+      )
       "providerConfigRef" (dict
         "name" $providerConfigName
         "kind" $providerConfigKind

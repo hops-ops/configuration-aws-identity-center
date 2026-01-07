@@ -14,7 +14,6 @@
 {{- $permissionSetsList := list }}
 {{- $permissionSetResourceNames := dict }}
 {{- $permissionSetManagementPolicies := dict }}
-{{- $permissionSetExternalNames := dict }}
 {{- $permissionSetAssignments := dict }}
 
 {{- range $permissionSet := $eff.permissionSets }}
@@ -23,13 +22,11 @@
     {{- $slug := regexReplaceAll "[^a-z0-9-]" (lower $name) "-" }}
     {{- $resourceName := printf "%s-%s" $ic.name $slug }}
     {{- $mgmtPolicies := $permissionSet.managementPolicies | default $ic.managementPolicies }}
-    {{- $extName := $permissionSet.externalName | default "" }}
+    {{- /* Look up external name from top-level imports.permissionSets */}}
+    {{- $extName := index $ic.imports.permissionSets $name | default "" }}
 
     {{- $permissionSetResourceNames = set $permissionSetResourceNames $name $resourceName }}
     {{- $permissionSetManagementPolicies = set $permissionSetManagementPolicies $name $mgmtPolicies }}
-    {{- if $extName }}
-      {{- $permissionSetExternalNames = set $permissionSetExternalNames $name $extName }}
-    {{- end }}
 
     # Build renderable assignments
     {{- $assignments := list }}
@@ -161,7 +158,6 @@
   "list" $permissionSetsList
   "resourceNames" $permissionSetResourceNames
   "managementPolicies" $permissionSetManagementPolicies
-  "externalNames" $permissionSetExternalNames
   "assignments" $permissionSetAssignments
 }}
 

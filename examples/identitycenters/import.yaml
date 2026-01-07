@@ -1,0 +1,92 @@
+# Import existing Identity Center resources into Crossplane management.
+# managementPolicies excludes "Delete" to prevent accidental deletion.
+#
+# This pattern enables:
+# - Adopting pre-existing Identity Center infrastructure
+# - Re-running E2E tests against persistent resources
+# - Migrating resources between Crossplane installations
+#
+# Import workflow:
+# 1. Get external IDs of existing resources using AWS CLI or Console
+# 2. Apply this manifest with managementPolicies excluding Delete
+# 3. Once stable, optionally add "Delete" to managementPolicies for full management
+apiVersion: aws.hops.ops.com.ai/v1alpha1
+kind: IdentityCenter
+metadata:
+  name: imported-sso
+  namespace: default
+spec:
+  # Exclude Delete to safely import without risk of accidental deletion
+  managementPolicies:
+    - Create
+    - Observe
+    - Update
+    - LateInitialize
+
+  providerConfigRef:
+    name: aws-provider
+
+  region: us-east-1
+  identityStoreId: d-1234567890
+  identityCenter:
+    instanceArn: arn:aws:sso:::instance/ssoins-1234567890abcdef
+    sessionDuration: PT2H
+
+  # Import existing resources using flat imports object
+  imports:
+    # Map of group names to Identity Store Group IDs
+    # Get IDs: aws identitystore list-groups --identity-store-id d-1234567890
+    groups:
+      Admins: "94815e08-1234-5678-9abc-def012345678"
+      Developers: "84815e08-2345-6789-abcd-ef0123456789"
+
+    # Map of usernames to Identity Store User IDs
+    # Get IDs: aws identitystore list-users --identity-store-id d-1234567890
+    users:
+      admin-user: "74815e08-3456-789a-bcde-f01234567890"
+      dev-user: "64815e08-4567-89ab-cdef-012345678901"
+
+    # Map of "username/groupName" to Group Membership IDs
+    # Get IDs: aws identitystore list-group-memberships --identity-store-id d-1234567890 --group-id <GROUP_ID>
+    groupMemberships:
+      admin-user/Admins: "115b85b0-5678-9abc-def0-123456789012"
+      dev-user/Developers: "215b85b0-6789-abcd-ef01-234567890123"
+
+    # Map of permission set names to "PERMISSION_SET_ARN,INSTANCE_ARN"
+    # Get ARNs: aws sso-admin list-permission-sets --instance-arn arn:aws:sso:::instance/ssoins-1234567890abcdef
+    # Get name: aws sso-admin describe-permission-set --instance-arn <INSTANCE_ARN> --permission-set-arn <PS_ARN>
+    permissionSets:
+      AdminAccess: "arn:aws:sso:::permissionSet/ssoins-1234567890abcdef/ps-abc123,arn:aws:sso:::instance/ssoins-1234567890abcdef"
+      DeveloperAccess: "arn:aws:sso:::permissionSet/ssoins-1234567890abcdef/ps-def456,arn:aws:sso:::instance/ssoins-1234567890abcdef"
+
+  groups:
+    - name: Admins
+      displayName: Platform Admins
+    - name: Developers
+      displayName: Development Team
+
+  users:
+    - username: admin-user
+      email: admin@example.com
+      firstName: Admin
+      lastName: User
+      groups: [Admins]
+    - username: dev-user
+      email: dev@example.com
+      firstName: Dev
+      lastName: User
+      groups: [Developers]
+
+  permissionSets:
+    - name: AdminAccess
+      description: Full admin access for platform administrators
+      managedPolicies:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+      assignToGroups: [Admins]
+      assignToAccounts: ["123456789012"]
+    - name: DeveloperAccess
+      description: Developer access for development team
+      managedPolicies:
+        - arn:aws:iam::aws:policy/PowerUserAccess
+      assignToGroups: [Developers]
+      assignToAccounts: ["123456789012"]
